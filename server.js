@@ -274,6 +274,15 @@ async function ensurePromotorColumnsExist() {
   }
 }
 
+// Health check endpoint (para Docker e monitoramento)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // ROTA: Receber lead do formulário
 app.post('/api/leads', async (req, res) => {
   try {
