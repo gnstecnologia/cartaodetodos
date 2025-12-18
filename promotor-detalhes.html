@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Detalhes do Promotor - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      .promotor-detalhes-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .promotor-detalhes-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .promotor-detalhes-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-white), var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .promotor-metricas-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .metrica-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .metrica-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-background), var(--color-highlight));
+      }
+
+      .metrica-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .metrica-value {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--color-background);
+      }
+
+      .valor-gerado-card .metrica-value {
+        color: var(--color-background);
+        font-size: 2rem;
+      }
+
+      .filters-section {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .filters-title {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filters-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 1rem;
+        align-items: end;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .filter-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filter-input, .filter-select {
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: white;
+      }
+
+      .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 3px rgba(15, 138, 60, 0.1);
+      }
+
+      .filter-btn, .clear-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s ease;
+      }
+
+      .clear-btn {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+        border: 2px solid rgba(15, 31, 19, 0.2);
+      }
+
+      .filter-btn:hover, .clear-btn:hover {
+        transform: translateY(-2px);
+      }
+
+      .leads-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+
+      .lead-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 1.75rem;
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.12),
+          0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 280px;
+      }
+
+      .lead-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-background), var(--color-highlight), #13c053);
+        background-size: 200% 100%;
+        animation: shimmer 3s infinite;
+      }
+
+      .lead-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(15, 138, 60, 0.05) 0%, transparent 70%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+
+      .lead-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 
+          0 20px 60px rgba(0, 0, 0, 0.15),
+          0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+          0 0 40px rgba(15, 138, 60, 0.2);
+      }
+
+      .lead-card:hover::after {
+        opacity: 1;
+      }
+
+      @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+
+      .lead-header {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        position: relative;
+        z-index: 1;
+      }
+
+      .lead-name-wrapper {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .lead-avatar {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.15), rgba(19, 192, 83, 0.15));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border: 2px solid rgba(15, 138, 60, 0.2);
+      }
+
+      .lead-avatar i {
+        color: var(--color-background);
+        font-size: 1.2rem;
+      }
+
+      .lead-name {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0;
+        line-height: 1.3;
+        flex: 1;
+      }
+
+      .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .status-badge i {
+        font-size: 0.75rem;
+      }
+
+      .status-nova { background: rgba(37, 99, 235, 0.15); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.3); }
+      .status-contato { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+      .status-negociacao { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3); }
+      .status-fechado { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+      .status-perdido { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+      .lead-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        color: rgba(15, 31, 19, 0.7);
+        flex: 1;
+        position: relative;
+        z-index: 1;
+      }
+
+      .info-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(15, 138, 60, 0.1);
+      }
+
+      .info-item:last-child {
+        border-bottom: none;
+      }
+
+      .info-item i {
+        width: 20px;
+        text-align: center;
+        color: var(--color-background);
+        font-size: 1rem;
+        flex-shrink: 0;
+      }
+
+      .info-item-value {
+        flex: 1;
+        font-weight: 500;
+        word-break: break-word;
+      }
+
+      .info-item.highlight {
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.08), rgba(19, 192, 83, 0.08));
+        padding: 0.75rem;
+        border-radius: 12px;
+        border-bottom: none;
+        margin-top: auto;
+      }
+
+      .info-item.highlight i {
+        color: #10b981;
+        font-size: 1.1rem;
+      }
+
+      .info-item.highlight .info-item-value {
+        color: #10b981;
+        font-weight: 700;
+        font-size: 1rem;
+      }
+
+      .lead-footer {
+        margin-top: auto;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(15, 138, 60, 0.1);
+        position: relative;
+        z-index: 1;
+      }
+
+      .lead-date {
+        font-size: 0.85rem;
+        color: rgba(15, 31, 19, 0.6);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+      }
+
+      .lead-date i {
+        color: rgba(15, 138, 60, 0.7);
+        font-size: 0.9rem;
+      }
+
+      .nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+
+      .loading, .error {
+        text-align: center;
+        padding: 3rem;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.1rem;
+        color: var(--color-dark);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: rgba(15, 31, 19, 0.5);
+        grid-column: 1 / -1;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .empty-state i {
+        font-size: 4rem;
+        color: rgba(15, 138, 60, 0.3);
+        margin-bottom: 1rem;
+        display: block;
+      }
+
+      .empty-state h3 {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0 0 0.5rem;
+      }
+
+      .empty-state p {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1rem;
+        color: rgba(15, 31, 19, 0.6);
+        margin: 0;
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .pagination-btn {
+        background: white;
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        color: var(--color-dark);
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .pagination-btn:hover:not(:disabled) {
+        background: var(--color-background);
+        color: white;
+        border-color: var(--color-background);
+      }
+
+      .pagination-btn.active {
+        background: var(--color-background);
+        color: white;
+      }
+
+      .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      @media (max-width: 1200px) {
+        .leads-list {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .promotor-detalhes-container {
+          padding: 1rem;
+        }
+
+        .filters-row {
+          grid-template-columns: 1fr !important;
+        }
+
+        .leads-list {
+          grid-template-columns: 1fr;
+        }
+
+        .lead-card {
+          min-height: auto;
+        }
+
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </div>
+
+    <div class="promotor-detalhes-container">
+      <div class="promotor-detalhes-header">
+        <h1 class="promotor-detalhes-title" id="promotorNome">
+          <i class="fas fa-user-tie"></i>
+          Carregando...
+        </h1>
+        <div style="display: flex; gap: 1rem;">
+          <a href="promotores.html" class="nav-btn">
+            <i class="fas fa-arrow-left"></i> Voltar
+          </a>
+          <a href="dashboard.html" class="nav-btn">
+            <i class="fas fa-chart-bar"></i> Dashboard
+          </a>
+        </div>
+      </div>
+
+      <!-- Métricas do Promotor -->
+      <div class="promotor-metricas-grid" id="metricasGrid"></div>
+
+      <!-- Filtros -->
+      <div class="filters-section">
+        <h2 class="filters-title">
+          <i class="fas fa-filter"></i>
+          Filtros
+        </h2>
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-search"></i>
+              Buscar Lead
+            </label>
+            <input 
+              type="text" 
+              id="searchFilter" 
+              class="filter-input" 
+              placeholder="Nome ou telefone"
+              oninput="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-filter"></i>
+              Status
+            </label>
+            <select id="statusFilter" class="filter-select" onchange="applyFilters()">
+              <option value="">Todos os Status</option>
+              <option value="Nova Indicação">Nova Indicação</option>
+              <option value="Em Contato">Em Contato</option>
+              <option value="Em Negociação">Em Negociação</option>
+              <option value="Fechado">Fechado</option>
+              <option value="Perdido">Perdido</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-sort"></i>
+              Ordenar por
+            </label>
+            <select id="sortFilter" class="filter-select" onchange="applyFilters()">
+              <option value="recentes">Mais Recentes</option>
+              <option value="antigos">Mais Antigos</option>
+              <option value="nome-az">Nome A-Z</option>
+              <option value="nome-za">Nome Z-A</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+            <button class="filter-btn" onclick="applyFilters()">
+              <i class="fas fa-search"></i> Buscar
+            </button>
+            <button class="clear-btn" onclick="clearFilters()">
+              <i class="fas fa-times"></i> Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loading" class="loading" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Carregando dados...
+      </div>
+
+      <div id="error" class="error" style="display: none;"></div>
+
+      <div id="content" style="display: none;">
+        <div id="leadsList" class="leads-list"></div>
+        <div id="pagination" class="pagination"></div>
+      </div>
+    </div>
+
+    <script src="scripts/promotor-detalhes.js"></script>
+  </body>
+</html>
+

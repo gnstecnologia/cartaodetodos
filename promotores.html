@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Promotores - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      .promotores-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .promotores-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .promotores-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-white), var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .promotores-nav {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .nav-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .stat-summary-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .stat-summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-background), var(--color-highlight), #13c053);
+        background-size: 200% 100%;
+        animation: shimmer 3s infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: -1000px 0;
+        }
+        100% {
+          background-position: 1000px 0;
+        }
+      }
+
+      .stat-summary-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .stat-summary-value {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-background);
+      }
+
+      .filters-section {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .filters-title {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filters-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 1rem;
+        align-items: end;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .filter-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filter-input, .filter-select {
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: white;
+      }
+
+      .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 3px rgba(15, 138, 60, 0.1), 0 4px 12px rgba(15, 138, 60, 0.15);
+      }
+
+      .filter-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+        height: fit-content;
+      }
+
+      .filter-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 24px rgba(15, 138, 60, 0.4);
+      }
+
+      .clear-btn {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+        border: 2px solid rgba(15, 31, 19, 0.2);
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .clear-btn:hover {
+        background: rgba(15, 31, 19, 0.15);
+        transform: translateY(-2px) scale(1.05);
+      }
+
+      .promotores-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .promotor-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        border-left: 5px solid var(--color-background);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .promotor-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-background), var(--color-highlight));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .promotor-card:hover::before {
+        opacity: 1;
+      }
+
+      .promotor-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 30px rgba(15, 138, 60, 0.15);
+        border-left-width: 6px;
+      }
+
+      .promotor-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+      }
+
+      .promotor-name {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0;
+      }
+
+      .promotor-rank {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      .promotor-rank.rank-1 {
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+      }
+
+      .promotor-rank.rank-2 {
+        background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+      }
+
+      .promotor-rank.rank-3 {
+        background: linear-gradient(135deg, #CD7F32, #B87333);
+      }
+
+      .promotor-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: rgba(15, 138, 60, 0.05);
+        border-radius: 8px;
+      }
+
+      .stat-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        color: rgba(15, 31, 19, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .stat-value {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-background);
+      }
+
+      .valor-gerado-item {
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.1), rgba(19, 192, 83, 0.1)) !important;
+        border: 2px solid rgba(15, 138, 60, 0.2);
+      }
+
+      .valor-gerado-value {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 1.4rem !important;
+      }
+
+      .status-breakdown {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid rgba(15, 138, 60, 0.1);
+      }
+
+      .status-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .status-nova { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+      .status-contato { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      .status-negociacao { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+      .status-fechado { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+      .status-perdido { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+      .promotor-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid rgba(15, 138, 60, 0.1);
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(15, 31, 19, 0.6);
+      }
+
+      .loading, .error {
+        text-align: center;
+        padding: 3rem;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.1rem;
+        color: var(--color-dark);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: rgba(15, 31, 19, 0.5);
+        grid-column: 1 / -1;
+      }
+
+      .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .pagination-btn {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        color: var(--color-dark);
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 44px;
+      }
+
+      .pagination-btn:hover:not(:disabled) {
+        background: var(--color-background);
+        color: white;
+        border-color: var(--color-background);
+        transform: translateY(-3px) scale(1.05);
+      }
+
+      .pagination-btn.active {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border-color: var(--color-background);
+      }
+
+      .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      @media (max-width: 768px) {
+        .promotores-container {
+          padding: 1rem;
+        }
+
+        .filters-row {
+          grid-template-columns: 1fr !important;
+        }
+
+        .promotores-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .promotores-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </div>
+
+    <div class="promotores-container">
+      <div class="promotores-header">
+        <h1 class="promotores-title">
+          <i class="fas fa-trophy"></i>
+          Promotores
+        </h1>
+        <div class="promotores-nav">
+          <a href="dashboard-promotores.html" class="nav-btn">
+            <i class="fas fa-chart-bar"></i> Dashboard
+          </a>
+          <a href="dashboard.html" class="nav-btn">
+            <i class="fas fa-chart-line"></i> Dashboard Geral
+          </a>
+          <a href="indicadores.html" class="nav-btn">
+            <i class="fas fa-users"></i> Indicadores
+          </a>
+          <a href="crm.html" class="nav-btn">
+            <i class="fas fa-tasks"></i> CRM
+          </a>
+          <button class="nav-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Sair
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="filters-section">
+        <h2 class="filters-title">
+          <i class="fas fa-filter"></i>
+          Filtros
+        </h2>
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-search"></i>
+              Buscar Promotor
+            </label>
+            <input 
+              type="text" 
+              id="searchFilter" 
+              class="filter-input" 
+              placeholder="Nome do promotor"
+              oninput="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-calendar-alt"></i>
+              Período - De
+            </label>
+            <input 
+              type="date" 
+              id="dateFilterInicio" 
+              class="filter-input"
+              onchange="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-calendar-check"></i>
+              Período - Até
+            </label>
+            <input 
+              type="date" 
+              id="dateFilterFim" 
+              class="filter-input"
+              onchange="applyFilters()"
+            />
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+            <button class="filter-btn" onclick="applyFilters()">
+              <i class="fas fa-search"></i> Buscar
+            </button>
+            <button class="clear-btn" onclick="clearFilters()">
+              <i class="fas fa-times"></i> Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loading" class="loading" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Carregando promotores...
+      </div>
+
+      <div id="error" class="error" style="display: none;"></div>
+
+      <div id="promotoresContent" style="display: none;">
+        <div id="promotoresGrid" class="promotores-grid"></div>
+        <div id="pagination" class="pagination"></div>
+      </div>
+    </div>
+
+    <script src="scripts/promotores.js"></script>
+  </body>
+</html>

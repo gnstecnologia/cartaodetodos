@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Indicados - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      .indicados-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .indicados-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .indicados-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .indicados-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-white), var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+      }
+
+      .indicador-info {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.15);
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+      }
+
+      .indicados-nav {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .nav-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .nav-btn i {
+        font-size: 1rem;
+        transition: transform 0.3s ease;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .nav-btn:hover i {
+        transform: scale(1.1);
+      }
+
+      .nav-btn:active {
+        transform: translateY(0);
+      }
+
+      .filters-section {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        position: relative;
+        z-index: 9999;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .filters-title {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filters-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto;
+        gap: 1rem;
+        align-items: end;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .filter-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filter-input, .filter-select {
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: white;
+        position: relative;
+        z-index: 9999;
+      }
+
+      .filter-select {
+        z-index: 9999;
+      }
+
+      .filter-select:focus {
+        z-index: 99999;
+      }
+
+      .filter-group {
+        position: relative;
+        z-index: 9999;
+      }
+
+      .filter-group:has(.filter-select:focus) {
+        z-index: 99999;
+      }
+
+      .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 3px rgba(15, 138, 60, 0.1), 0 4px 12px rgba(15, 138, 60, 0.15);
+        transform: translateY(-2px);
+      }
+
+      .filter-input:hover, .filter-select:hover {
+        border-color: rgba(15, 138, 60, 0.4);
+        transform: translateY(-1px);
+      }
+
+      .filter-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+        height: fit-content;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .filter-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .filter-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .filter-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 24px rgba(15, 138, 60, 0.4);
+      }
+
+      .filter-btn:active {
+        transform: translateY(-1px) scale(0.98);
+      }
+
+      .filter-btn:hover i {
+        transform: rotate(180deg);
+      }
+
+      .filter-btn i {
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .clear-btn {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+        border: 2px solid rgba(15, 31, 19, 0.2);
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .clear-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(15, 31, 19, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .clear-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .clear-btn:hover {
+        background: rgba(15, 31, 19, 0.15);
+        transform: translateY(-2px) scale(1.05);
+        border-color: rgba(15, 31, 19, 0.3);
+      }
+
+      .clear-btn:active {
+        transform: translateY(0) scale(0.98);
+      }
+
+      .indicados-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .indicado-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(10px);
+        border-radius: 18px;
+        padding: 1.5rem;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-left: 5px solid var(--color-background);
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        animation: cardFadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .indicado-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s ease;
+      }
+
+      .indicado-card:hover::before {
+        left: 100%;
+      }
+
+      .indicado-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), 0 0 30px rgba(15, 138, 60, 0.15);
+        border-left-width: 6px;
+      }
+
+      .indicado-card:active {
+        transform: translateY(-4px) scale(0.98);
+        transition: all 0.1s ease;
+      }
+
+      @keyframes cardFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+          transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+      }
+
+      .indicado-card.fade-out {
+        animation: fadeOut 0.3s ease forwards;
+      }
+
+      .indicado-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .indicado-name {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicado-card:hover .indicado-name {
+        color: var(--color-background);
+        transform: translateX(4px);
+      }
+
+      .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .status-badge::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        transition: left 0.4s ease;
+      }
+
+      .indicado-card:hover .status-badge {
+        transform: scale(1.1) rotate(2deg);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .indicado-card:hover .status-badge::after {
+        left: 100%;
+      }
+
+      .status-nova {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        color: white;
+      }
+
+      .status-contato {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: white;
+      }
+
+      .status-negociacao {
+        background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+        color: white;
+      }
+
+      .status-fechado {
+        background: linear-gradient(135deg, #10b981, #34d399);
+        color: white;
+      }
+
+      .status-perdido {
+        background: linear-gradient(135deg, #ef4444, #f87171);
+        color: white;
+      }
+
+      .indicado-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .info-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(15, 138, 60, 0.05);
+        border-radius: 8px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.95rem;
+        color: var(--color-dark);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .info-item::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--color-background), #13c053);
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicado-card:hover .info-item {
+        background: rgba(15, 138, 60, 0.08);
+        transform: translateX(4px);
+      }
+
+      .indicado-card:hover .info-item::after {
+        width: 100%;
+      }
+
+      .info-item i {
+        color: var(--color-background);
+        width: 20px;
+        text-align: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicado-card:hover .info-item i {
+        transform: scale(1.2) rotate(5deg);
+        color: #13c053;
+      }
+
+      .indicado-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .action-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(15, 138, 60, 0.4);
+      }
+
+      .action-btn:hover i {
+        transform: rotate(360deg);
+      }
+
+      .action-btn:active {
+        transform: translateY(-1px) scale(0.98);
+      }
+
+      .action-btn i {
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .action-btn.secondary {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+      }
+
+      .action-btn.secondary:hover {
+        background: rgba(15, 31, 19, 0.15);
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .pagination-btn {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        color: var(--color-dark);
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 44px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .pagination-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(15, 138, 60, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .pagination-btn:hover:not(:disabled)::before {
+        width: 200px;
+        height: 200px;
+      }
+
+      .pagination-btn:hover:not(:disabled) {
+        background: var(--color-background);
+        color: white;
+        border-color: var(--color-background);
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(15, 138, 60, 0.3);
+      }
+
+      .pagination-btn:active:not(:disabled) {
+        transform: translateY(-1px) scale(0.98);
+      }
+
+      .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .pagination-btn.active {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border-color: var(--color-background);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      .loading, .error {
+        text-align: center;
+        padding: 3rem;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.1rem;
+        color: var(--color-dark);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: rgba(15, 31, 19, 0.5);
+      }
+
+      .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+      }
+
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(5px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 2rem;
+        animation: fadeIn 0.3s ease-out;
+      }
+
+      .modal-content {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 0;
+        max-width: 700px;
+        width: 100%;
+        max-height: 85vh;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        flex-direction: column;
+        animation: slideUp 0.3s ease-out;
+      }
+
+      .modal-close-btn {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        background: rgba(15, 138, 60, 0.1);
+        border: 2px solid rgba(15, 138, 60, 0.2);
+        color: var(--color-background);
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        transition: all 0.3s ease;
+        z-index: 1;
+      }
+
+      .modal-close-btn:hover {
+        background: var(--color-background);
+        color: white;
+        transform: rotate(90deg) scale(1.1);
+      }
+
+      .modal-title {
+        margin: 0;
+        padding: 1.5rem 2rem;
+        border-bottom: 2px solid rgba(15, 138, 60, 0.1);
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.05), rgba(19, 192, 83, 0.05));
+        color: var(--color-background);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-family: 'Inter', 'Source Sans 3', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .timeline-content {
+        padding: 2rem;
+        overflow-y: auto;
+        flex: 1;
+      }
+
+      .modal-footer-btn {
+        margin: 1.5rem 2rem;
+        align-self: flex-end;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .indicados-container {
+          padding: 1rem;
+        }
+
+        .filters-row {
+          grid-template-columns: 1fr !important;
+        }
+
+        .indicado-info {
+          grid-template-columns: 1fr;
+        }
+
+        .indicados-list {
+          grid-template-columns: 1fr;
+        }
+
+        .modal-overlay {
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </div>
+
+    <div class="indicados-container">
+      <div class="indicados-header">
+        <div class="indicados-title-wrapper">
+          <h1 class="indicados-title">
+            <i class="fas fa-user-friends"></i>
+            Indicados
+          </h1>
+          <div class="indicador-info" id="indicadorInfo"></div>
+        </div>
+        <div class="indicados-nav">
+          <a href="indicadores.html" class="nav-btn">
+            <i class="fas fa-users"></i> Indicadores
+          </a>
+          <a href="promotores.html" class="nav-btn">
+            <i class="fas fa-trophy"></i> Promotores
+          </a>
+          <a href="dashboard.html" class="nav-btn">
+            <i class="fas fa-chart-bar"></i> Dashboard
+          </a>
+          <a href="crm.html" class="nav-btn">
+            <i class="fas fa-tasks"></i> CRM
+          </a>
+          <button class="nav-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Sair
+          </button>
+        </div>
+      </div>
+
+      <div class="filters-section">
+        <h2 class="filters-title">
+          <i class="fas fa-filter"></i>
+          Filtros
+        </h2>
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-search"></i>
+              Buscar
+            </label>
+            <input 
+              type="text" 
+              id="searchFilter" 
+              class="filter-input" 
+              placeholder="Nome ou telefone"
+              oninput="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-tasks"></i>
+              Status
+            </label>
+            <select id="statusFilter" class="filter-select" onchange="applyFilters()">
+              <option value="">Todos os Status</option>
+              <option value="Nova Indicação">Nova Indicação</option>
+              <option value="Em Contato">Em Contato</option>
+              <option value="Em Negociação">Em Negociação</option>
+              <option value="Fechado">Fechado</option>
+              <option value="Perdido">Perdido</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-calendar-alt"></i>
+              Período - De
+            </label>
+            <input 
+              type="date" 
+              id="dateFilterInicio" 
+              class="filter-input"
+              onchange="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-calendar-check"></i>
+              Período - Até
+            </label>
+            <input 
+              type="date" 
+              id="dateFilterFim" 
+              class="filter-input"
+              onchange="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-sort"></i>
+              Ordenar por
+            </label>
+            <select id="sortFilter" class="filter-select" onchange="applyFilters()">
+              <option value="recentes">Mais Recentes Primeiro</option>
+              <option value="antigos">Mais Antigos Primeiro</option>
+              <option value="nome-az">Nome A-Z</option>
+              <option value="nome-za">Nome Z-A</option>
+              <option value="status">Status</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+            <button class="filter-btn" onclick="applyFilters()">
+              <i class="fas fa-search"></i> Buscar
+            </button>
+            <button class="clear-btn" onclick="clearFilters()">
+              <i class="fas fa-times"></i> Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loading" class="loading" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Carregando indicados...
+      </div>
+
+      <div id="error" class="error" style="display: none;"></div>
+
+      <div id="indicadosContent" style="display: none;">
+        <div id="indicadosList" class="indicados-list"></div>
+        <div id="pagination" class="pagination"></div>
+      </div>
+    </div>
+
+    <!-- Modal Timeline -->
+    <div id="timelineModal" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <button class="modal-close-btn" onclick="closeTimelineModal()">
+          <i class="fas fa-times"></i>
+        </button>
+        <h2 class="modal-title">
+          <i class="fas fa-history"></i> Timeline do Lead
+        </h2>
+        <div id="timelineContent" class="timeline-content"></div>
+        <button class="btn-primary modal-footer-btn" onclick="closeTimelineModal()">
+          <i class="fas fa-times"></i> Fechar
+        </button>
+      </div>
+    </div>
+
+    <script src="scripts/indicados.js"></script>
+  </body>
+</html>
+

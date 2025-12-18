@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Indicadores - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      .indicadores-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .indicadores-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .indicadores-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-white), var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .indicadores-nav {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .nav-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .nav-btn i {
+        font-size: 1rem;
+        transition: transform 0.3s ease;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .nav-btn:hover i {
+        transform: scale(1.1);
+      }
+
+      .nav-btn:active {
+        transform: translateY(0);
+      }
+
+      .filters-section {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        position: relative;
+        z-index: 9999;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .filters-title {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filters-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr auto;
+        gap: 1rem;
+        align-items: end;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .filter-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .filter-input, .filter-select {
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: white;
+        position: relative;
+        z-index: 9999;
+      }
+
+      .filter-select {
+        z-index: 9999;
+      }
+
+      .filter-select:focus {
+        z-index: 99999;
+      }
+
+      .filter-group {
+        position: relative;
+        z-index: 9999;
+      }
+
+      .filter-group:has(.filter-select:focus) {
+        z-index: 99999;
+      }
+
+      .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 3px rgba(15, 138, 60, 0.1), 0 4px 12px rgba(15, 138, 60, 0.15);
+        transform: translateY(-2px);
+      }
+
+      .filter-input:hover, .filter-select:hover {
+        border-color: rgba(15, 138, 60, 0.4);
+        transform: translateY(-1px);
+      }
+
+      .filter-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+        height: fit-content;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .filter-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .filter-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .filter-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 24px rgba(15, 138, 60, 0.4);
+      }
+
+      .filter-btn:active {
+        transform: translateY(-1px) scale(0.98);
+      }
+
+      .filter-btn:hover i {
+        transform: rotate(180deg);
+      }
+
+      .filter-btn i {
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .clear-btn {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+        border: 2px solid rgba(15, 31, 19, 0.2);
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .clear-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(15, 31, 19, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .clear-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .clear-btn:hover {
+        background: rgba(15, 31, 19, 0.15);
+        transform: translateY(-2px) scale(1.05);
+        border-color: rgba(15, 31, 19, 0.3);
+      }
+
+      .clear-btn:active {
+        transform: translateY(0) scale(0.98);
+      }
+
+      .indicadores-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .indicador-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(10px);
+        border-radius: 18px;
+        padding: 1.5rem;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        border-left: 5px solid var(--color-background);
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        animation: cardFadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .promotor-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s ease;
+      }
+
+      .promotor-card:hover::before {
+        left: 100%;
+      }
+
+      .promotor-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), 0 0 30px rgba(15, 138, 60, 0.15);
+        border-left-width: 6px;
+      }
+
+      .promotor-card:active {
+        transform: translateY(-4px) scale(0.98);
+        transition: all 0.1s ease;
+      }
+
+      @keyframes cardFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+          transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+      }
+
+      .promotor-card.fade-out {
+        animation: fadeOut 0.3s ease forwards;
+      }
+
+      .indicador-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+      }
+
+      .indicador-name {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicador-card:hover .indicador-name {
+        color: var(--color-background);
+        transform: translateX(4px);
+      }
+
+      .indicador-id {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(15, 31, 19, 0.5);
+        background: rgba(15, 138, 60, 0.1);
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicador-card:hover .indicador-id {
+        background: rgba(15, 138, 60, 0.2);
+        transform: scale(1.05);
+        color: var(--color-background);
+      }
+
+      .indicador-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: rgba(15, 138, 60, 0.05);
+        border-radius: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .stat-item::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--color-background), #13c053);
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicador-card:hover .stat-item {
+        background: rgba(15, 138, 60, 0.08);
+        transform: translateX(4px);
+      }
+
+      .indicador-card:hover .stat-item::after {
+        width: 100%;
+      }
+
+      .stat-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        color: rgba(15, 31, 19, 0.7);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .stat-value {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--color-background);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-block;
+      }
+
+      .indicador-card:hover .stat-value {
+        transform: scale(1.1);
+        color: #13c053;
+      }
+
+      .indicador-date {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(15, 31, 19, 0.6);
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .pagination-btn {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        color: var(--color-dark);
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 44px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .pagination-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(15, 138, 60, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .pagination-btn:hover:not(:disabled)::before {
+        width: 200px;
+        height: 200px;
+      }
+
+      .pagination-btn:hover:not(:disabled) {
+        background: var(--color-background);
+        color: white;
+        border-color: var(--color-background);
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(15, 138, 60, 0.3);
+      }
+
+      .pagination-btn:active:not(:disabled) {
+        transform: translateY(-1px) scale(0.98);
+      }
+
+      .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .pagination-btn.active {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border-color: var(--color-background);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          box-shadow: 0 0 0 0 rgba(15, 138, 60, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(15, 138, 60, 0);
+        }
+      }
+
+      .loading, .error {
+        text-align: center;
+        padding: 3rem;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.1rem;
+        color: var(--color-dark);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: rgba(15, 31, 19, 0.5);
+      }
+
+      .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+      }
+
+      @media (max-width: 768px) {
+        .indicadores-container {
+          padding: 1rem;
+        }
+
+        .filters-row {
+          grid-template-columns: 1fr !important;
+        }
+
+        .indicadores-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .indicadores-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </div>
+
+    <div class="indicadores-container">
+      <div class="indicadores-header">
+        <h1 class="indicadores-title">
+          <i class="fas fa-users"></i>
+          Indicadores
+        </h1>
+        <div class="indicadores-nav">
+          <a href="dashboard.html" class="nav-btn">
+            <i class="fas fa-chart-bar"></i> Dashboard
+          </a>
+          <a href="promotores.html" class="nav-btn">
+            <i class="fas fa-trophy"></i> Promotores
+          </a>
+          <a href="dashboard-promotores.html" class="nav-btn">
+            <i class="fas fa-chart-bar"></i> Dashboard Promotores
+          </a>
+          <a href="crm.html" class="nav-btn">
+            <i class="fas fa-tasks"></i> CRM
+          </a>
+          <button class="nav-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Sair
+          </button>
+        </div>
+      </div>
+
+      <div class="filters-section">
+        <h2 class="filters-title">
+          <i class="fas fa-filter"></i>
+          Filtros
+        </h2>
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-search"></i>
+              Buscar Indicador
+            </label>
+            <input 
+              type="text" 
+              id="searchFilter" 
+              class="filter-input" 
+              placeholder="Nome ou ID do indicador"
+              oninput="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-calendar-alt"></i>
+              Período - De
+            </label>
+            <input 
+              type="date" 
+              id="dateFilterInicio" 
+              class="filter-input"
+              onchange="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-calendar-check"></i>
+              Período - Até
+            </label>
+            <input 
+              type="date" 
+              id="dateFilterFim" 
+              class="filter-input"
+              onchange="applyFilters()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-sort"></i>
+              Ordenar por
+            </label>
+            <select id="sortFilter" class="filter-select" onchange="applyFilters()">
+              <option value="recentes">Mais Recentes Primeiro</option>
+              <option value="antigos">Mais Antigos Primeiro</option>
+              <option value="mais-indicacoes">Mais Indicações</option>
+              <option value="menos-indicacoes">Menos Indicações</option>
+              <option value="nome-az">Nome A-Z</option>
+              <option value="nome-za">Nome Z-A</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+            <button class="filter-btn" onclick="applyFilters()">
+              <i class="fas fa-search"></i> Buscar
+            </button>
+            <button class="clear-btn" onclick="clearFilters()">
+              <i class="fas fa-times"></i> Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loading" class="loading" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Carregando indicadores...
+      </div>
+
+      <div id="error" class="error" style="display: none;"></div>
+
+      <div id="indicadoresContent" style="display: none;">
+        <div id="indicadoresGrid" class="indicadores-grid"></div>
+        <div id="pagination" class="pagination"></div>
+      </div>
+    </div>
+
+    <script src="scripts/indicadores.js"></script>
+  </body>
+</html>
+

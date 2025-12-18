@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Obrigado - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .thank-you-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 70vh;
+        text-align: center;
+        gap: 2rem;
+        padding: 2rem;
+      }
+
+      .thank-you-icon {
+        width: 120px;
+        height: 120px;
+        background: var(--color-highlight);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        animation: scaleIn 0.5s ease-out;
+      }
+
+      .thank-you-icon svg {
+        width: 60px;
+        height: 60px;
+        fill: var(--color-background);
+      }
+
+      @keyframes scaleIn {
+        from {
+          transform: scale(0);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      .thank-you-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 700;
+        color: var(--color-white);
+        margin: 0;
+        animation: fadeInUp 0.6s ease-out 0.2s both;
+      }
+
+      .thank-you-message {
+        font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+        color: var(--color-white);
+        max-width: 600px;
+        line-height: 1.6;
+        margin: 0;
+        animation: fadeInUp 0.6s ease-out 0.4s both;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .thank-you-image {
+        max-width: 400px;
+        width: 100%;
+        height: auto;
+        margin-top: 2rem;
+        animation: fadeInUp 0.6s ease-out 0.6s both;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="thank-you-container">
+          <div class="thank-you-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </div>
+          <h1 class="thank-you-title">Obrigado!</h1>
+          <p class="thank-you-message">
+            Recebemos sua indicação com sucesso!<br />
+            Nossa equipe entrará em contato em breve para ativar a indicação.
+          </p>
+          <img
+            src="IMAGEM LADO DA HEADLINE.png"
+            alt="Cliente apresentando o Cartão de Todos e o aplicativo"
+            class="thank-you-image"
+          />
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+

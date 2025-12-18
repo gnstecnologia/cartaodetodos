@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+      // Configuração da API - usa a origem atual (funciona local e produção)
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .dashboard-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-white), var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        text-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
+      }
+
+      .nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .nav-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .nav-btn:active {
+        transform: translateY(0);
+      }
+
+      .nav-btn i {
+        font-size: 1rem;
+        transition: transform 0.3s ease;
+      }
+
+      .nav-btn:hover i {
+        transform: scale(1.1);
+      }
+
+      .logout-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .logout-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .logout-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .logout-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .logout-btn:active {
+        transform: translateY(0);
+      }
+
+      /* Animações */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(40px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: -1000px 0;
+        }
+        100% {
+          background-position: 1000px 0;
+        }
+      }
+
+      .animate-fade-in {
+        animation: fadeIn 0.6s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-slide-up {
+        animation: slideUp 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .stats-row {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+      }
+
+      @media (min-width: 1200px) {
+        .stats-row {
+          flex-wrap: nowrap;
+        }
+      }
+
+      .stat-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2rem;
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.12),
+          0 0 0 1px rgba(255, 255, 255, 0.8) inset,
+          0 1px 0 rgba(255, 255, 255, 0.9) inset;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-background), var(--color-highlight), #13c053);
+        background-size: 200% 100%;
+        animation: shimmer 3s infinite;
+      }
+
+      .stat-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(15, 138, 60, 0.05) 0%, transparent 70%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 
+          0 20px 60px rgba(0, 0, 0, 0.15),
+          0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+          0 0 40px rgba(15, 138, 60, 0.2);
+      }
+
+      .stat-card:hover::after {
+        opacity: 1;
+      }
+
+      .stat-content {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .stat-icon-wrapper {
+        width: 70px;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.1), rgba(19, 192, 83, 0.1));
+        border-radius: 16px;
+        border: 2px solid rgba(15, 138, 60, 0.2);
+      }
+
+      .stat-icon {
+        font-size: 2rem;
+        color: var(--color-background);
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        animation: pulse 3s ease-in-out infinite;
+      }
+
+      .stat-info {
+        flex: 1;
+      }
+
+      .stat-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.6);
+        margin: 0.5rem 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .stat-value {
+        font-family: 'Inter', 'Source Sans 3', sans-serif;
+        font-size: 3.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-background), #13c053, var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0.5rem 0;
+        line-height: 1;
+      }
+
+      .stat-trend {
+        font-size: 0.75rem;
+        color: rgba(15, 31, 19, 0.5);
+        margin-top: 0.5rem;
+        font-weight: 500;
+      }
+
+      .ranking-section {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.12),
+          0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .table-wrapper {
+        border-radius: 16px;
+      }
+
+      /* Layout Principal Horizontal */
+      .dashboard-main-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+
+      @media (max-width: 1400px) {
+        .dashboard-main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Gráficos */
+      .charts-column {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+      }
+
+      .ranking-column {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chart-container {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2rem;
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.12),
+          0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .chart-container:hover {
+        transform: translateY(-4px);
+        box-shadow: 
+          0 20px 60px rgba(0, 0, 0, 0.15),
+          0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+      }
+
+      .chart-header {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid rgba(15, 138, 60, 0.1);
+      }
+
+      .chart-title-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .chart-title-icon {
+        font-size: 1.8rem;
+        color: var(--color-background);
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.1), rgba(19, 192, 83, 0.1));
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        border: 2px solid rgba(15, 138, 60, 0.2);
+      }
+
+      .chart-title {
+        font-family: 'Inter', 'Source Sans 3', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0 0 0.25rem;
+      }
+
+      .chart-subtitle {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.85rem;
+        color: rgba(15, 31, 19, 0.5);
+        font-weight: 500;
+      }
+
+      .section-title-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid rgba(15, 138, 60, 0.1);
+      }
+
+      .section-title-icon {
+        font-size: 2rem;
+        color: var(--color-background);
+        background: linear-gradient(135deg, rgba(15, 138, 60, 0.1), rgba(19, 192, 83, 0.1));
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: 2px solid rgba(15, 138, 60, 0.2);
+      }
+
+      .section-title {
+        font-family: 'Inter', 'Source Sans 3', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+      }
+
+      .ranking-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 1rem;
+      }
+
+      .ranking-table thead {
+        display: none;
+      }
+
+      .ranking-table tbody {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: 1fr;
+      }
+
+      .ranking-table tbody tr {
+        display: grid;
+        grid-template-columns: 70px minmax(200px, 1fr) auto;
+        gap: 1.25rem;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(10px);
+        border-radius: 18px;
+        padding: 1.5rem;
+        box-shadow: 
+          0 6px 20px rgba(0, 0, 0, 0.08),
+          0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        border-left: 5px solid var(--color-background);
+        animation: cardAppear 0.5s ease-out forwards;
+      }
+
+      @media (min-width: 1400px) {
+      .ranking-table tbody tr {
+          grid-template-columns: 80px minmax(250px, 1fr) auto;
+        }
+      }
+
+      .ranking-table tbody tr::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 5px;
+        background: linear-gradient(180deg, var(--color-background), var(--color-highlight));
+        border-radius: 18px 0 0 18px;
+        opacity: 1;
+      }
+
+      .ranking-table tbody tr:hover {
+        transform: translateY(-4px);
+        box-shadow: 
+          0 12px 32px rgba(0, 0, 0, 0.12),
+          0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+          0 0 30px rgba(15, 138, 60, 0.15);
+        border-left-width: 6px;
+      }
+
+      .ranking-table tbody tr td {
+        padding: 0;
+        border: none;
+        display: flex;
+        align-items: center;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        color: var(--color-dark);
+      }
+
+      .ranking-table tbody tr td:first-child {
+        justify-content: center;
+      }
+
+      .ranking-table tbody tr td:nth-child(2) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+
+      .ranking-table tbody tr td:nth-child(3) {
+        justify-content: flex-end;
+        white-space: nowrap;
+      }
+
+
+      @keyframes cardAppear {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: var(--color-white);
+        text-align: center;
+        line-height: 1;
+        font-weight: 700;
+        font-size: 1rem;
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .rank-badge.rank-1 {
+        background: linear-gradient(135deg, #ffd700, #ffed4e);
+        color: var(--color-dark);
+        box-shadow: 0 4px 16px rgba(255, 215, 0, 0.4);
+        transform: scale(1.1);
+      }
+
+      .rank-badge.rank-2 {
+        background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+        color: var(--color-dark);
+        box-shadow: 0 4px 16px rgba(192, 192, 192, 0.4);
+        transform: scale(1.05);
+      }
+
+      .rank-badge.rank-3 {
+        background: linear-gradient(135deg, #cd7f32, #e6a55d);
+        color: var(--color-white);
+        box-shadow: 0 4px 16px rgba(205, 127, 50, 0.4);
+        transform: scale(1.05);
+      }
+
+      .count-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: var(--color-white);
+        padding: 0.6rem 1rem;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.25);
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .count-badge i {
+        font-size: 0.85rem;
+      }
+
+      .count-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 16px rgba(15, 138, 60, 0.35);
+      }
+
+      .indicador-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--color-background);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .indicador-name {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--color-dark);
+        line-height: 1.3;
+        word-break: break-word;
+      }
+
+      .vendedor-name i {
+        color: var(--color-background);
+        font-size: 1.1rem;
+        flex-shrink: 0;
+      }
+
+      .indicador-code {
+        font-size: 0.85rem;
+        color: rgba(15, 31, 19, 0.5);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        background: rgba(15, 138, 60, 0.05);
+        border-radius: 8px;
+        width: fit-content;
+      }
+
+      .vendedor-code i {
+        font-size: 0.75rem;
+        color: rgba(15, 31, 19, 0.4);
+      }
+
+      @media (max-width: 768px) {
+        .charts-grid {
+          grid-template-columns: 1fr;
+        }
+        
+        .chart-container {
+          padding: 1.5rem;
+        }
+      }
+
+      .loading {
+        text-align: center;
+        padding: 3rem;
+        color: var(--color-white);
+        font-size: 1.2rem;
+      }
+
+      .error-message {
+        background: rgba(192, 32, 32, 0.9);
+        color: var(--color-white);
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        text-align: center;
+      }
+
+      .refresh-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: var(--color-white);
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        overflow: hidden;
+        text-decoration: none;
+      }
+
+      .refresh-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .refresh-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .refresh-btn i {
+        font-size: 1rem;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .refresh-btn:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 6px 20px rgba(15, 138, 60, 0.4);
+      }
+
+      .refresh-btn:hover i {
+        transform: rotate(180deg);
+      }
+
+      .refresh-btn:active {
+        transform: translateY(0) scale(0.98);
+      }
+
+      .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 2rem;
+        background: linear-gradient(135deg, var(--color-background) 0%, #0a7733 50%, #0f8a3c 100%);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .login-container::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(166, 255, 0, 0.1) 0%, transparent 70%);
+        animation: rotate 20s linear infinite;
+      }
+
+      @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .login-container::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('BACKGROUND-HERO.webp') center / cover no-repeat;
+        opacity: 0.15;
+        z-index: 0;
+      }
+
+      .login-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 32px;
+        padding: 3.5rem;
+        box-shadow: 
+          0 24px 60px rgba(0, 0, 0, 0.3),
+          0 0 0 1px rgba(255, 255, 255, 0.8) inset,
+          0 0 40px rgba(15, 138, 60, 0.2);
+        max-width: 450px;
+        width: 100%;
+        position: relative;
+        z-index: 1;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        animation: slideUp 0.6s ease-out;
+        overflow: hidden;
+      }
+
+      .login-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-background), var(--color-highlight), #13c053);
+        background-size: 200% 100%;
+        animation: shimmer 3s infinite;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+
+      .login-card-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+      }
+
+      .login-logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.9));
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid rgba(15, 138, 60, 0.2);
+        animation: pulse 2s ease-in-out infinite;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      .login-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+
+      .login-card h2 {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--color-background);
+        margin: 0;
+        text-align: center;
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .login-card-subtitle {
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        color: rgba(15, 31, 19, 0.6);
+        text-align: center;
+        margin-top: 0.5rem;
+      }
+
+      .login-form {
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      .form-group {
+        position: relative;
+      }
+
+      .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'Ubuntu', sans-serif;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: rgba(15, 31, 19, 0.7);
+        margin-bottom: 0.5rem;
+      }
+
+      .form-group label i {
+        color: var(--color-background);
+        font-size: 0.85rem;
+      }
+
+      .login-form input {
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 16px;
+        padding: 1rem;
+        border-radius: 12px;
+        border: 2px solid rgba(15, 138, 60, 0.25);
+        background: #f7fff9;
+        width: 100%;
+        box-sizing: border-box;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+      }
+
+      .login-form input::placeholder {
+        color: rgba(15, 31, 19, 0.4);
+      }
+
+      .login-form input:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 4px rgba(15, 138, 60, 0.1), 0 4px 12px rgba(15, 138, 60, 0.15);
+        transform: translateY(-2px);
+        background: white;
+      }
+
+      .login-form input:hover {
+        border-color: rgba(15, 138, 60, 0.4);
+      }
+
+
+      .login-form button {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--color-white);
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        border: none;
+        padding: 1.1rem 2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+        margin-top: 0.5rem;
+      }
+
+      .login-form button::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s ease, height 0.6s ease;
+      }
+
+      .login-form button:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .login-form button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(15, 138, 60, 0.4);
+      }
+
+      .login-form button:active {
+        transform: translateY(0);
+      }
+
+      .login-form button i {
+        margin-right: 0.5rem;
+      }
+
+      .login-error {
+        color: #c02020;
+        font-size: 0.9rem;
+        margin-top: -0.5rem;
+        text-align: center;
+        padding: 0.75rem;
+        background: rgba(192, 32, 32, 0.1);
+        border-radius: 8px;
+        border: 1px solid rgba(192, 32, 32, 0.2);
+        animation: shake 0.5s ease;
+      }
+
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+      }
+
+      @media (max-width: 1400px) {
+        .dashboard-main-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .charts-column {
+          order: 1;
+        }
+
+        .ranking-column {
+          order: 2;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .dashboard-container {
+          padding: 1rem;
+        }
+
+        .stats-row {
+          flex-direction: column;
+        }
+
+        .stat-content {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .stat-icon-wrapper {
+          margin: 0 auto;
+        }
+
+        .ranking-table tbody tr {
+          grid-template-columns: 1fr !important;
+          gap: 1.25rem;
+          padding: 1.5rem;
+        }
+
+        .ranking-table tbody tr td {
+          justify-content: flex-start !important;
+          width: 100% !important;
+        }
+
+        .ranking-table tbody tr td:first-child {
+          justify-content: center !important;
+        }
+
+        .ranking-table tbody tr td:nth-child(2) {
+          align-items: flex-start !important;
+        }
+
+        .ranking-table tbody tr td:nth-child(3) {
+          justify-content: flex-start !important;
+        }
+
+        .chart-title-group,
+        .section-title-group {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .dashboard-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .dashboard-header > div {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          width: 100%;
+        }
+
+        .dashboard-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          width: 100%;
+        }
+
+        .refresh-btn,
+        .nav-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="login-container">
+      <div class="login-card">
+        <div class="login-card-header">
+          <div class="login-logo">
+            <img src="faviconV2.png" alt="Cartão de Todos" />
+          </div>
+        <h2>Dashboard - Acesso Restrito</h2>
+          <p class="login-card-subtitle">Entre com suas credenciais para continuar</p>
+        </div>
+        <form id="loginForm" class="login-form">
+          <div class="form-group">
+            <label for="emailInput">
+              <i class="fas fa-envelope"></i> E-mail
+            </label>
+            <input
+              type="email"
+              id="emailInput"
+              placeholder="Digite seu e-mail"
+              required
+              autocomplete="email"
+            />
+          </div>
+          <div class="form-group">
+            <label for="passwordInput">
+              <i class="fas fa-lock"></i> Senha
+            </label>
+          <input
+            type="password"
+            id="passwordInput"
+              placeholder="Digite sua senha"
+            required
+              autocomplete="current-password"
+          />
+          </div>
+          <button type="submit">
+            <i class="fas fa-sign-in-alt"></i> Entrar
+          </button>
+          <p id="loginError" class="login-error" style="display: none;"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboardScreen" style="display: none;">
+      <header class="site-header">
+        <div class="site-header__logo">
+          <img src="LOGO.webp" alt="Cartão de Todos" />
+        </div>
+      </header>
+      <main>
+        <div class="dashboard-container">
+          <div class="dashboard-header">
+            <h1 class="dashboard-title">Dashboard de Indicados</h1>
+            <div class="dashboard-nav">
+              <a href="crm.html" class="nav-btn">
+                <i class="fas fa-tasks"></i> CRM
+              </a>
+              <a href="indicadores.html" class="nav-btn">
+                <i class="fas fa-users"></i> Indicadores
+              </a>
+              <a href="promotores.html" class="nav-btn">
+                <i class="fas fa-trophy"></i> Promotores
+              </a>
+              <a href="dashboard-promotores.html" class="nav-btn">
+                <i class="fas fa-chart-bar"></i> Dashboard Promotores
+              </a>
+              <button class="refresh-btn" onclick="loadDashboard()">
+                <i class="fas fa-sync-alt"></i> Atualizar
+              </button>
+              <button class="nav-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Sair
+              </button>
+            </div>
+          </div>
+
+          <!-- Filtro de Período -->
+          <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);">
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+              <label style="font-family: 'Inter', 'Ubuntu', sans-serif; font-weight: 700; color: var(--color-background); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-calendar"></i> Filtrar por Período:
+              </label>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <label style="font-size: 0.9rem; color: rgba(15, 31, 19, 0.7);">De:</label>
+                <input 
+                  type="date" 
+                  id="dateFilterInicio" 
+                  style="padding: 0.75rem; border-radius: 8px; border: 2px solid rgba(15, 138, 60, 0.25); font-family: 'Ubuntu', sans-serif; font-size: 16px;"
+                  onchange="applyDateFilter()"
+                />
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <label style="font-size: 0.9rem; color: rgba(15, 31, 19, 0.7);">Até:</label>
+                <input 
+                  type="date" 
+                  id="dateFilterFim" 
+                  style="padding: 0.75rem; border-radius: 8px; border: 2px solid rgba(15, 138, 60, 0.25); font-family: 'Ubuntu', sans-serif; font-size: 16px;"
+                  onchange="applyDateFilter()"
+                />
+              </div>
+              <button 
+                onclick="clearDateFilter()" 
+                style="background: rgba(15, 138, 60, 0.1); color: var(--color-background); border: 2px solid rgba(15, 138, 60, 0.3); padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-family: 'Inter', 'Ubuntu', sans-serif; font-weight: 700; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.5rem;"
+                onmouseover="this.style.background='rgba(15, 138, 60, 0.2)'"
+                onmouseout="this.style.background='rgba(15, 138, 60, 0.1)'"
+              >
+                <i class="fas fa-times"></i> Limpar Filtro
+              </button>
+            </div>
+          </div>
+
+          <div id="loading" class="loading">Carregando dados...</div>
+          <div id="error" class="error-message" style="display: none;"></div>
+
+          <div id="dashboardContent" style="display: none;">
+            <!-- Cards de Estatísticas - Layout Horizontal -->
+            <div class="stats-row">
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.1s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-chart-line stat-icon"></i>
+                  </div>
+                  <div class="stat-info">
+                <p class="stat-label">Total de Indicados</p>
+                <p class="stat-value" id="totalIndicados">0</p>
+                    <div class="stat-trend" id="trendIndicacoes"></div>
+              </div>
+                </div>
+              </div>
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.2s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-users stat-icon"></i>
+                  </div>
+                  <div class="stat-info">
+                <p class="stat-label">Indicadores Ativos</p>
+                <p class="stat-value" id="totalIndicadores">0</p>
+                    <div class="stat-trend" id="trendIndicadores"></div>
+              </div>
+                </div>
+              </div>
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.3s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-chart-bar stat-icon"></i>
+                  </div>
+                  <div class="stat-info">
+                <p class="stat-label">Média por Indicador</p>
+                <p class="stat-value" id="mediaIndicadores">0</p>
+                    <div class="stat-trend" id="trendMedia"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Layout Horizontal: Gráficos e Ranking lado a lado -->
+            <div class="dashboard-main-grid">
+              <!-- Coluna Esquerda: Gráficos -->
+              <div class="charts-column">
+                <div class="chart-container animate-slide-up" style="animation-delay: 0.4s;">
+                  <div class="chart-header">
+                    <div class="chart-title-group">
+                      <i class="fas fa-chart-area chart-title-icon"></i>
+                      <div>
+                        <h3 class="chart-title">Indicados por Período</h3>
+                        <span class="chart-subtitle">Últimos 7 dias</span>
+                      </div>
+                    </div>
+                  </div>
+                  <canvas id="chartTimeline"></canvas>
+                </div>
+                
+                <div class="chart-container animate-slide-up" style="animation-delay: 0.5s;">
+                  <div class="chart-header">
+                    <div class="chart-title-group">
+                      <i class="fas fa-chart-pie chart-title-icon"></i>
+                      <div>
+                        <h3 class="chart-title">Top 5 Indicadores</h3>
+                        <span class="chart-subtitle">Distribuição percentual</span>
+                      </div>
+                    </div>
+                  </div>
+                  <canvas id="chartPizza"></canvas>
+                </div>
+              </div>
+
+              <!-- Coluna Direita: Ranking -->
+              <div class="ranking-column">
+                <div class="ranking-section animate-slide-up" style="animation-delay: 0.6s;">
+                  <div class="section-title-group">
+                    <i class="fas fa-trophy section-title-icon"></i>
+              <h2 class="section-title">Ranking de Indicadores</h2>
+                  </div>
+              <div class="table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th>Posição</th>
+                      <th>Nome</th>
+                      <th>Indicados</th>
+                  </tr>
+                </thead>
+                <tbody id="rankingBody"></tbody>
+              </table>
+              </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="scripts/dashboard.js"></script>
+  </body>
+</html>
+

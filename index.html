@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Configuração da API - usa a origem atual (funciona local e produção)
+      window.API_BASE_URL = window.location.origin;
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="hero__heading">
+          <p class="hero__headline hero__headline--single">
+            Programa de Indicação Cartão de Todos
+          </p>
+        </div>
+        <div class="hero__grid">
+          <div class="hero__form-card">
+            <h2>Preencha sua indicação</h2>
+            <p>
+              Preencha os dados da sua indicação e nossa equipe ativará a indicação.
+            </p>
+            <form id="leadCaptureForm">
+              <label for="nome">Nome</label>
+              <input
+                type="text"
+                id="nome"
+                name="nome"
+                placeholder="Seu nome completo"
+                required
+              />
+              <label for="telefone">Telefone</label>
+              <input
+                type="tel"
+                id="telefone"
+                name="telefone"
+                placeholder="(00) 00000-0000"
+                required
+              />
+              <input
+                type="hidden"
+                id="codigoIndicacao"
+                name="codigoIndicacao"
+              />
+              <button type="submit">Enviar</button>
+              <p class="form-feedback" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+          <div class="hero__image-wrapper">
+            <img
+              src="IMAGEM LADO DA HEADLINE.png"
+              alt="Cliente apresentando o Cartão de Todos e o aplicativo"
+            />
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="scripts/form-handler.js" defer></script>
+  </body>
+</html>
+
