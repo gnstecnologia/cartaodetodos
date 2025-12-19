@@ -412,3 +412,4 @@ Se tiver problemas, verifique:
 2. Logs do Nginx: `sudo tail -f /var/log/nginx/error.log`
 3. Status do serviço: `pm2 status` e `sudo systemctl status nginx`
 
+

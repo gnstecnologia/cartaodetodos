@@ -182,3 +182,4 @@ git filter-branch --force --index-filter \
 - **Documentação para consolidar**: ~8 arquivos
 - **Arquivos essenciais**: Manter todos
 
+
