@@ -103,6 +103,30 @@ read -p "Pressione Enter para começar o deploy ou Ctrl+C para cancelar..."
 
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
+echo -e "${BLUE}  FASE 0: Verificações Iniciais${NC}"
+echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
+
+# Verificar se precisa reiniciar
+if [ -f /var/run/reboot-required ]; then
+    echo -e "${YELLOW}⚠️  Sistema precisa ser reiniciado após atualizações.${NC}"
+    echo -e "${YELLOW}   Recomendado: Execute 'sudo reboot' após o deploy.${NC}"
+    read -p "Deseja continuar mesmo assim? (s/n): " CONTINUE
+    if [ "$CONTINUE" != "s" ] && [ "$CONTINUE" != "S" ]; then
+        exit 0
+    fi
+fi
+
+# Instalar Git (necessário para clonar repositório)
+if ! command -v git &> /dev/null; then
+    echo -e "${GREEN}📦 Instalando Git...${NC}"
+    apt install -y git
+    echo -e "${GREEN}✅ Git instalado${NC}"
+else
+    echo -e "${YELLOW}✅ Git já instalado: $(git --version)${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  FASE 1: Atualizando Sistema${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
 apt update && apt upgrade -y
@@ -217,7 +241,17 @@ cd $APP_DIR
 pm2 start server.js --name cartaodetodos
 
 # Configurar para iniciar automaticamente
-pm2 startup systemd -u $SUDO_USER --hp /home/$SUDO_USER | grep -v "PM2" | bash || true
+# Verifica se é root ou usuário normal
+if [ "$SUDO_USER" ]; then
+    USER_HOME="/home/$SUDO_USER"
+else
+    USER_HOME="$HOME"
+    SUDO_USER=$(whoami)
+fi
+
+pm2 startup systemd -u $SUDO_USER --hp $USER_HOME 2>/dev/null | grep -v "PM2" | bash || {
+    echo -e "${YELLOW}⚠️  Execute o comando que apareceu acima para configurar PM2 no boot${NC}"
+}
 pm2 save
 
 echo -e "${GREEN}✅ PM2 configurado${NC}"
@@ -330,10 +364,23 @@ echo -e "${BLUE}🔍 Testando Aplicação...${NC}"
 sleep 3
 
 # Testar se está respondendo
+echo -e "${BLUE}⏳ Aguardando aplicação iniciar (10 segundos)...${NC}"
+sleep 10
+
 if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Aplicação está respondendo corretamente!${NC}"
 else
-    echo -e "${YELLOW}⚠️  Aplicação pode estar iniciando ainda. Verifique os logs: pm2 logs cartaodetodos${NC}"
+    echo -e "${YELLOW}⚠️  Aplicação pode estar iniciando ainda.${NC}"
+    echo -e "${YELLOW}   Verifique os logs: pm2 logs cartaodetodos${NC}"
+    echo -e "${YELLOW}   Verifique o status: pm2 status${NC}"
+fi
+
+# Verificar se precisa reiniciar após atualizações
+if [ -f /var/run/reboot-required ]; then
+    echo ""
+    echo -e "${YELLOW}⚠️  ATENÇÃO: Sistema precisa ser reiniciado após atualizações.${NC}"
+    echo -e "${YELLOW}   Execute: sudo reboot${NC}"
+    echo -e "${YELLOW}   Após reiniciar, a aplicação iniciará automaticamente com PM2.${NC}"
 fi
 
 echo ""
