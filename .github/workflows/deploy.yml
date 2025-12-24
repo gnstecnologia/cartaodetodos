@@ -11,16 +11,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start ssh-agent and add key
-        uses: webfactory/ssh-agent@v0.8.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: Run deploy on VPS
         run: |
           set -e
           TARGET_DIR="${{ secrets.TARGET_DIR }}"
           TARGET_DIR="${TARGET_DIR:-/var/www/cartaodetodos}"
+          # write private key to temporary file from secret and secure it
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "bash -s" << 'EOF'
             set -e
             cd "$TARGET_DIR"
@@ -29,3 +27,5 @@ jobs:
             npm install --production
             pm2 restart cartaodetodos || pm2 start server.js --name cartaodetodos
           EOF
+          # remove temporary key
+          rm -f /tmp/deploy_key
