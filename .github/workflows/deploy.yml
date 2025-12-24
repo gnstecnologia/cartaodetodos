@@ -1,0 +1,30 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start ssh-agent and add key
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run deploy on VPS
+        run: |
+          set -e
+          TARGET_DIR="${{ secrets.TARGET_DIR || '/var/www/cartaodetodos' }}"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "bash -s" << 'EOF'
+            set -e
+            cd "$TARGET_DIR"
+            git fetch --all
+            git reset --hard origin/main
+            npm install --production
+            pm2 restart cartaodetodos || pm2 start server.js --name cartaodetodos
+EOF

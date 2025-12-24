@@ -9,3 +9,6 @@ node_modules/
 !package-lock.json
 
 
+
+deploy_key
+deploy_key.pub
