@@ -19,7 +19,8 @@ jobs:
       - name: Run deploy on VPS
         run: |
           set -e
-          TARGET_DIR="${{ secrets.TARGET_DIR || '/var/www/cartaodetodos' }}"
+          TARGET_DIR="${{ secrets.TARGET_DIR }}"
+          TARGET_DIR="${TARGET_DIR:-/var/www/cartaodetodos}"
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "bash -s" << 'EOF'
             set -e
             cd "$TARGET_DIR"
