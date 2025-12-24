@@ -19,7 +19,8 @@ jobs:
           # write private key to temporary file from secret and secure it
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "bash -s" << 'EOF'
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} bash -s "$TARGET_DIR" << 'EOF'
+            TARGET_DIR="$1"
             set -e
             cd "$TARGET_DIR"
             git fetch --all
