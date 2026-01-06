@@ -27,6 +27,18 @@ jobs:
             git reset --hard origin/main
             npm install --production
             
+            # Limpar arquivos desnecessários
+            if [ -f "limpar-vps.sh" ]; then
+              bash limpar-vps.sh || true
+            else
+              # Limpeza manual se o script não existir
+              rm -f deploy-automatico.sh deploy-vps.sh stop-server.ps1 test-connection.js 2>/dev/null || true
+              rm -f Dockerfile docker-compose.yml vercel.json default.php 2>/dev/null || true
+              rm -rf .github 2>/dev/null || true
+              find . -name "*.log" -type f -delete 2>/dev/null || true
+              find . -name "*.tmp" -type f -delete 2>/dev/null || true
+            fi
+            
             # Reiniciar Nginx se a configuração mudou
             if [ -f "nginx-cartaodetodos.conf" ]; then
               sudo cp nginx-cartaodetodos.conf /etc/nginx/sites-available/cartaodetodos.cloud 2>/dev/null || true
