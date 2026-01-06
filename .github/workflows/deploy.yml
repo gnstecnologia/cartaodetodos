@@ -26,6 +26,14 @@ jobs:
             git fetch --all
             git reset --hard origin/main
             npm install --production
+            
+            # Reiniciar Nginx se a configuração mudou
+            if [ -f "nginx-cartaodetodos.conf" ]; then
+              sudo cp nginx-cartaodetodos.conf /etc/nginx/sites-available/cartaodetodos.cloud 2>/dev/null || true
+              sudo ln -sf /etc/nginx/sites-available/cartaodetodos.cloud /etc/nginx/sites-enabled/cartaodetodos.cloud 2>/dev/null || true
+              sudo nginx -t && sudo systemctl reload nginx 2>/dev/null || true
+            fi
+            
             pm2 restart cartaodetodos || pm2 start server.js --name cartaodetodos
           EOF
           # remove temporary key

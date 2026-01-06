@@ -75,6 +75,29 @@ cartaodetodos/
 
 O deploy é automatizado via GitHub Actions. A cada push na branch `main`, o sistema é automaticamente deployado na VPS.
 
+### Configuração Inicial na VPS (SSL/HTTPS)
+
+Para habilitar HTTPS na VPS, execute o script de configuração:
+
+```bash
+# Conecte na VPS via SSH
+ssh root@seu-ip
+
+# Navegue até o diretório do projeto
+cd /var/www/cartaodetodos
+
+# Execute o script de configuração
+bash setup-nginx-ssl.sh
+```
+
+O script irá:
+- Instalar e configurar Nginx
+- Obter certificado SSL gratuito via Let's Encrypt
+- Configurar proxy reverso para o servidor Node.js
+- Habilitar renovação automática do certificado
+
+⚠️ **Importante**: Certifique-se de que o DNS do domínio `cartaodetodos.cloud` aponta para o IP da VPS antes de executar o script.
+
 ### Variáveis necessárias no GitHub Secrets:
 
 - `SSH_PRIVATE_KEY`: Chave SSH privada para acesso à VPS
