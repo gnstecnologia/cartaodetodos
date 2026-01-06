@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerenciar Usuários - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      .usuarios-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .usuarios-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .usuarios-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--color-white), var(--color-highlight));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .btn-add-user {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 8px rgba(15, 138, 60, 0.2);
+      }
+
+      .btn-add-user:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+      }
+
+      .usuarios-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .user-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 1.75rem;
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.12),
+          0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-left: 5px solid var(--color-background);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+
+      .user-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 
+          0 16px 48px rgba(0, 0, 0, 0.15),
+          0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+      }
+
+      .user-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        gap: 0.75rem;
+        min-width: 0;
+      }
+
+      .user-header > div:first-child {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .user-name {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        line-height: 1.3;
+      }
+
+      .user-email {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.9rem;
+        color: rgba(15, 31, 19, 0.6);
+        margin: 0.5rem 0 0 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-all;
+        line-height: 1.4;
+      }
+
+      .user-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .badge-admin {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(37, 99, 235, 0.1));
+        color: #2563eb;
+        border: 1px solid rgba(37, 99, 235, 0.2);
+      }
+
+      .badge-coordenador {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1));
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+      }
+
+      .badge-gerente {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1));
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+      }
+
+      .badge-promotor {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.1));
+        color: #8b5cf6;
+        border: 1px solid rgba(139, 92, 246, 0.2);
+      }
+
+      .user-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid rgba(15, 138, 60, 0.1);
+      }
+
+      .btn-action {
+        flex: 1;
+        padding: 0.5rem;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .btn-edit {
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+      }
+
+      .btn-edit:hover {
+        background: rgba(37, 99, 235, 0.2);
+      }
+
+      .btn-delete {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+      }
+
+      .btn-delete:hover {
+        background: rgba(239, 68, 68, 0.2);
+      }
+
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal {
+        background: white;
+        border-radius: 24px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+      }
+
+      .modal-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-dark);
+        margin: 0;
+      }
+
+      .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: rgba(15, 31, 19, 0.5);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+      }
+
+      .btn-close:hover {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .form-label {
+        display: block;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        color: var(--color-dark);
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+      }
+
+      .form-label.required::after {
+        content: ' *';
+        color: #e74c3c;
+      }
+
+      .form-input,
+      .form-select {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid rgba(15, 31, 19, 0.2);
+        border-radius: 12px;
+        font-family: 'Ubuntu', Arial, sans-serif;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+        color: var(--color-dark);
+        box-sizing: border-box;
+      }
+
+      .form-input:focus,
+      .form-select:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 3px rgba(15, 138, 60, 0.1);
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 0.875rem 1.5rem;
+        border: none;
+        border-radius: 12px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        box-shadow: 0 2px 8px rgba(15, 138, 60, 0.2);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(15, 31, 19, 0.2);
+      }
+
+      .error-message {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        display: none;
+      }
+
+      .error-message.show {
+        display: block;
+      }
+
+      .success-message {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        display: none;
+      }
+
+      .success-message.show {
+        display: block;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 3rem;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.1rem;
+        color: var(--color-dark);
+      }
+
+      .nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+
+      @media (max-width: 768px) {
+        .usuarios-container {
+          padding: 1rem;
+        }
+
+        .usuarios-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-header">
+      <div class="site-header__logo">
+        <img src="LOGO.webp" alt="Cartão de Todos" />
+      </div>
+    </div>
+
+    <div class="usuarios-container">
+      <div class="usuarios-header">
+        <h1 class="usuarios-title">
+          <i class="fas fa-users-cog"></i>
+          Gerenciar Usuários
+        </h1>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <a href="dashboard.html" class="nav-btn">
+            <i class="fas fa-arrow-left"></i> Voltar
+          </a>
+          <button class="btn-add-user" onclick="openModal()">
+            <i class="fas fa-user-plus"></i> Novo Usuário
+          </button>
+        </div>
+      </div>
+
+      <div id="loading" class="loading">
+        <i class="fas fa-spinner fa-spin"></i> Carregando usuários...
+      </div>
+
+      <div id="error" class="error-message"></div>
+      <div id="success" class="success-message"></div>
+
+      <div id="usuariosGrid" class="usuarios-grid" style="display: none;"></div>
+    </div>
+
+    <!-- Modal de Criar/Editar Usuário -->
+    <div id="userModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle">Novo Usuário</h2>
+          <button class="btn-close" onclick="closeModal()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div id="modalError" class="error-message"></div>
+        <div id="modalSuccess" class="success-message"></div>
+
+        <form id="userForm" onsubmit="saveUser(event)">
+          <input type="hidden" id="userId" />
+          
+          <div class="form-group">
+            <label class="form-label required" for="nome">
+              <i class="fas fa-user"></i> Nome Completo
+            </label>
+            <input
+              type="text"
+              id="nome"
+              class="form-input"
+              placeholder="Digite o nome completo"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required" for="email">
+              <i class="fas fa-envelope"></i> E-mail
+            </label>
+            <input
+              type="email"
+              id="email"
+              class="form-input"
+              placeholder="usuario@exemplo.com"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required" for="senha">
+              <i class="fas fa-lock"></i> Senha
+            </label>
+            <input
+              type="password"
+              id="senha"
+              class="form-input"
+              placeholder="Digite a senha"
+              minlength="6"
+              required
+            />
+            <small style="color: rgba(15, 31, 19, 0.6); font-size: 0.85rem;">
+              Mínimo de 6 caracteres
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required" for="tipo">
+              <i class="fas fa-user-tag"></i> Tipo de Usuário
+            </label>
+            <select id="tipo" class="form-select" required>
+              <option value="">Selecione o tipo</option>
+              <option value="coordenador">Coordenador</option>
+              <option value="gerente">Gerente</option>
+              <option value="promotor">Promotor</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required" for="permissao">
+              <i class="fas fa-shield-alt"></i> Permissão
+            </label>
+            <select id="permissao" class="form-select" required>
+              <option value="">Selecione a permissão</option>
+              <option value="admin">Admin (Acesso total)</option>
+              <option value="usuario">Usuário (Acesso limitado)</option>
+            </select>
+            <small style="color: rgba(15, 31, 19, 0.6); font-size: 0.85rem;">
+              Admin pode criar/editar usuários e acessar todas as funcionalidades
+            </small>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">
+              <i class="fas fa-times"></i> Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="scripts/users-config.js"></script>
+    <script src="scripts/usuarios.js"></script>
+  </body>
+</html>
+

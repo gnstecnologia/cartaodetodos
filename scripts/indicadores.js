@@ -38,17 +38,25 @@ function parseBrazilianDate(dateString) {
 
 // Verifica autenticação
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (!isAuthenticated) {
+  const userData = sessionStorage.getItem('userData');
+  if (!userData) {
     window.location.href = 'dashboard.html';
     return false;
   }
-  return true;
+  try {
+    JSON.parse(userData);
+    sessionStorage.setItem('dashboardAuth', 'true');
+    return true;
+  } catch {
+    window.location.href = 'dashboard.html';
+    return false;
+  }
 }
 
 // Logout
 function logout() {
   sessionStorage.removeItem('dashboardAuth');
+  sessionStorage.removeItem('userData');
   window.location.href = 'dashboard.html';
 }
 
@@ -438,5 +446,68 @@ function viewIndicadorIndicados(indicadorId) {
 // Inicialização
 if (checkAuth()) {
   loadIndicadores();
+  
+  // Inicializa botões de exportação após um pequeno delay
+  setTimeout(initializeExportButtons, 500);
+}
+
+// Inicializa botões de exportação
+function initializeExportButtons() {
+  addExportButtonsStyles();
+  const container = document.getElementById('exportButtonsContainer');
+  if (container) {
+    container.innerHTML = createExportButtons('exportButtons');
+    
+    // Adiciona event listeners
+    document.getElementById('exportCSV')?.addEventListener('click', () => {
+      const dados = formatIndicadoresForExport(filteredIndicadores);
+      exportToCSV(dados, `indicadores_${new Date().toISOString().split('T')[0]}.csv`);
+    });
+    
+    document.getElementById('exportExcel')?.addEventListener('click', () => {
+      const dados = formatIndicadoresForExport(filteredIndicadores);
+      exportToExcel(dados, `indicadores_${new Date().toISOString().split('T')[0]}.xlsx`);
+    });
+  }
+}
+
+// Exporta dados de indicadores
+function exportIndicadoresData(format) {
+  if (!filteredIndicadores || filteredIndicadores.length === 0) {
+    alert('Nenhum dado disponível para exportar!');
+    return;
+  }
+
+  const headers = [
+    'ID',
+    'Nome',
+    'Telefone',
+    'Total de Indicações',
+    'Data Primeira Indicação',
+    'Data Última Indicação'
+  ];
+
+  const rowMapper = (indicador) => {
+    return [
+      indicador.id || 'N/A',
+      indicador.nome || 'N/A',
+      indicador.telefone || 'N/A',
+      indicador.totalIndicacoes || 0,
+      indicador.dataPrimeiraIndicacao || 'N/A',
+      indicador.dataUltimaIndicacao || 'N/A'
+    ];
+  };
+
+  const agora = new Date();
+  const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
+  const filename = `indicadores_${dataStr}`;
+
+  if (format === 'csv') {
+    exportToCSV(filteredIndicadores, filename, headers, rowMapper);
+  } else if (format === 'excel') {
+    exportToExcel(filteredIndicadores, filename, headers, rowMapper);
+  } else if (format === 'txt') {
+    exportToTXT(filteredIndicadores, filename, headers, rowMapper);
+  }
 }
 

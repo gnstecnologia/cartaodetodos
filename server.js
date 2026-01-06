@@ -19,6 +19,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const LEADS_SHEET = process.env.GOOGLE_SHEETS_LEADS_SHEET || 'Leads';
 // Nome da aba no Google Sheets onde ficam os Indicadores (pode ser "Promotor", "Indicador", etc.)
 const PROMOTOR_SHEET = process.env.GOOGLE_SHEETS_PROMOTOR_SHEET || 'Promotor';
+const USUARIOS_SHEET = process.env.GOOGLE_SHEETS_USUARIOS_SHEET || 'Usuarios';
 
 // Autenticação Google Sheets
 let sheets;
@@ -271,6 +272,108 @@ async function ensurePromotorColumnsExist() {
     }
   } catch (error) {
     console.error('Erro ao verificar colunas do Promotor:', error.message);
+  }
+}
+
+// Função auxiliar para verificar se uma aba existe
+async function sheetExists(sheetName) {
+  try {
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID
+    });
+    const sheetsList = response.data.sheets || [];
+    return sheetsList.some(sheet => sheet.properties.title === sheetName);
+  } catch (error) {
+    return false;
+  }
+}
+
+// Função auxiliar para criar uma aba
+async function createSheet(sheetName) {
+  try {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      resource: {
+        requests: [{
+          addSheet: {
+            properties: {
+              title: sheetName
+            }
+          }
+        }]
+      }
+    });
+    console.log(`✅ Aba ${sheetName} criada com sucesso`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Erro ao criar aba ${sheetName}:`, error.message);
+    return false;
+  }
+}
+
+// Função para garantir que as colunas necessárias existam na aba Usuarios
+async function ensureUsuariosColumnsExist() {
+  try {
+    // Verifica se a aba existe, se não, cria
+    const exists = await sheetExists(USUARIOS_SHEET);
+    if (!exists) {
+      const created = await createSheet(USUARIOS_SHEET);
+      if (!created) {
+        throw new Error('Não foi possível criar a aba');
+      }
+      // Aguarda um pouco para a aba ser criada
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // Tenta ler os dados da aba
+    let data;
+    try {
+      data = await readSheet(USUARIOS_SHEET, 'A1:Z1');
+    } catch (error) {
+      // Se ainda der erro, tenta novamente após um delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      data = await readSheet(USUARIOS_SHEET, 'A1:Z1');
+    }
+    
+    const headers = data[0] || [];
+    const requiredColumns = [
+      'Email',
+      'Nome',
+      'Senha',
+      'Tipo',
+      'Permissao'
+    ];
+
+    // Se não há headers, cria os headers iniciais
+    if (headers.length === 0) {
+      await writeSheet(USUARIOS_SHEET, 'A1', [requiredColumns]);
+      console.log(`✅ Headers criados na aba ${USUARIOS_SHEET}`);
+      return;
+    }
+
+    const missingColumns = [];
+    const existingHeaders = headers.map(h => h && h.toString().trim());
+
+    requiredColumns.forEach(col => {
+      if (!existingHeaders.includes(col)) {
+        missingColumns.push(col);
+      }
+    });
+
+    if (missingColumns.length > 0) {
+      // Adiciona colunas faltantes
+      const lastCol = headers.length;
+      const newHeaders = [...headers];
+      missingColumns.forEach((col, idx) => {
+        newHeaders[lastCol + idx] = col;
+      });
+
+      await writeSheet(USUARIOS_SHEET, 'A1', [newHeaders]);
+      console.log(`✅ Colunas adicionadas na aba ${USUARIOS_SHEET}: ${missingColumns.join(', ')}`);
+    }
+  } catch (error) {
+    console.error(`Erro ao verificar colunas da aba ${USUARIOS_SHEET}:`, error.message);
+    throw error;
   }
 }
 
@@ -970,6 +1073,372 @@ app.get('/api/leads/:leadId/timeline', async (req, res) => {
   }
 });
 
+// ROTA: Criar novo indicador
+app.post('/api/indicadores', async (req, res) => {
+  try {
+    const { nome, telefone, chavePix } = req.body;
+
+    // Validação dos campos obrigatórios
+    if (!nome || !telefone || !chavePix) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Nome, Telefone e Chave Pix são obrigatórios'
+      });
+    }
+
+    // Garante que as colunas existam
+    await ensurePromotorColumnsExist();
+
+    // Busca todos os dados da aba Promotor para encontrar o último ID
+    const promotorData = await readSheet(PROMOTOR_SHEET);
+    const headers = promotorData[0] || [];
+    const rows = promotorData.slice(1);
+
+    // Encontra índice da coluna ID
+    const idIndex = findColumnIndex(headers, 'ID');
+    
+    // Encontra o maior ID existente
+    let ultimoId = 0;
+    if (idIndex !== -1 && rows.length > 0) {
+      rows.forEach(row => {
+        const id = row[idIndex];
+        if (id) {
+          const idNum = parseInt(id);
+          if (!isNaN(idNum) && idNum > ultimoId) {
+            ultimoId = idNum;
+          }
+        }
+      });
+    }
+
+    // Gera novo ID sequencial
+    const novoId = ultimoId + 1;
+
+    // Gera URL automaticamente
+    const url = `https://cartaodetodos.companygenesis.com.br/?codigo=${novoId}`;
+
+    // Data de criação em ISO
+    const dataCriacao = getSaoPauloISOString();
+
+    // Encontra índices das colunas
+    const nomeIndex = findColumnIndex(headers, 'Nome');
+    const telefoneIndex = findColumnIndex(headers, 'Telefone');
+    const chavePixIndex = findColumnIndex(headers, 'Chave Pix');
+    const urlIndex = findColumnIndex(headers, 'URL');
+    const dataCriacaoIndex = findColumnIndex(headers, 'Data de Criação');
+    const totalIndicacoesIndex = findColumnIndex(headers, 'Total de Indicações');
+
+    // Cria array com todas as colunas (preenche com valores vazios e depois atualiza as necessárias)
+    const maxCols = Math.max(headers.length, 10);
+    const row = new Array(maxCols).fill('');
+
+    // Preenche colunas usando os índices encontrados
+    if (idIndex !== -1) row[idIndex] = novoId;
+    if (nomeIndex !== -1) row[nomeIndex] = nome;
+    if (telefoneIndex !== -1) row[telefoneIndex] = telefone;
+    if (chavePixIndex !== -1) row[chavePixIndex] = chavePix;
+    if (urlIndex !== -1) row[urlIndex] = url;
+    if (dataCriacaoIndex !== -1) row[dataCriacaoIndex] = dataCriacao;
+    if (totalIndicacoesIndex !== -1) row[totalIndicacoesIndex] = 0; // Inicia com 0 indicações
+
+    // Adiciona linha na planilha
+    await appendRow(PROMOTOR_SHEET, row);
+
+    res.json({
+      ok: true,
+      message: 'Indicador criado com sucesso',
+      indicador: {
+        id: novoId,
+        nome,
+        telefone,
+        chavePix,
+        url
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao criar indicador:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Erro ao criar indicador: ' + error.message
+    });
+  }
+});
+
+// ROTA: Listar usuários
+app.get('/api/usuarios', async (req, res) => {
+  try {
+    await ensureUsuariosColumnsExist();
+    
+    const data = await readSheet(USUARIOS_SHEET);
+    if (data.length === 0) {
+      return res.json({
+        ok: true,
+        usuarios: []
+      });
+    }
+
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const emailIndex = findColumnIndex(headers, 'Email');
+    const nomeIndex = findColumnIndex(headers, 'Nome');
+    const senhaIndex = findColumnIndex(headers, 'Senha');
+    const tipoIndex = findColumnIndex(headers, 'Tipo');
+    const permissaoIndex = findColumnIndex(headers, 'Permissao');
+
+    const usuarios = rows
+      .filter(row => row[emailIndex] && row[emailIndex].trim()) // Filtra linhas vazias
+      .map(row => {
+        const tipo = (row[tipoIndex] || '').trim();
+        const permissao = (row[permissaoIndex] || '').trim();
+        return {
+          email: (row[emailIndex] || '').trim(),
+          nome: (row[nomeIndex] || '').trim(),
+          senha: row[senhaIndex] || '', // ATENÇÃO: Senha em texto plano - considerar criptografia em produção
+          tipo: tipo || 'promotor',
+          permissao: permissao || 'usuario'
+        };
+      });
+
+    res.json({
+      ok: true,
+      usuarios
+    });
+  } catch (error) {
+    console.error('Erro ao listar usuários:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Erro ao listar usuários: ' + error.message
+    });
+  }
+});
+
+// ROTA: Criar usuário
+app.post('/api/usuarios', async (req, res) => {
+  try {
+    await ensureUsuariosColumnsExist();
+
+    const { nome, email, senha, tipo, permissao } = req.body;
+
+    if (!nome || !email || !senha || !tipo || !permissao) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Todos os campos são obrigatórios'
+      });
+    }
+
+    // Validação de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Email inválido'
+      });
+    }
+
+    // Verifica se o email já existe
+    const data = await readSheet(USUARIOS_SHEET);
+    const headers = data[0] || [];
+    const rows = data.slice(1);
+    const emailIndex = findColumnIndex(headers, 'Email');
+    
+    const emailExists = rows.some(row => 
+      row[emailIndex] && row[emailIndex].toLowerCase().trim() === email.toLowerCase().trim()
+    );
+
+    if (emailExists) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Email já cadastrado'
+      });
+    }
+
+    // Adiciona novo usuário
+    const nomeIndex = findColumnIndex(headers, 'Nome');
+    const senhaIndex = findColumnIndex(headers, 'Senha');
+    const tipoIndex = findColumnIndex(headers, 'Tipo');
+    const permissaoIndex = findColumnIndex(headers, 'Permissao');
+
+    const maxCols = Math.max(headers.length, 5);
+    const row = new Array(maxCols).fill('');
+    
+    row[emailIndex] = email.toLowerCase().trim();
+    row[nomeIndex] = nome.trim();
+    row[senhaIndex] = senha; // ATENÇÃO: Senha em texto plano - considerar criptografia em produção
+    row[tipoIndex] = tipo;
+    row[permissaoIndex] = permissao;
+
+    await appendRow(USUARIOS_SHEET, row);
+
+    res.json({
+      ok: true,
+      message: 'Usuário criado com sucesso',
+      usuario: {
+        email: email.toLowerCase().trim(),
+        nome: nome.trim(),
+        tipo,
+        permissao
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao criar usuário:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Erro ao criar usuário: ' + error.message
+    });
+  }
+});
+
+// ROTA: Atualizar usuário
+app.put('/api/usuarios/:email', async (req, res) => {
+  try {
+    await ensureUsuariosColumnsExist();
+
+    const emailParam = decodeURIComponent(req.params.email);
+    const { nome, senha, tipo, permissao } = req.body;
+
+    if (!nome || !tipo || !permissao) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Nome, tipo e permissão são obrigatórios'
+      });
+    }
+
+    const data = await readSheet(USUARIOS_SHEET);
+    const headers = data[0] || [];
+    const rows = data.slice(1);
+    
+    const emailIndex = findColumnIndex(headers, 'Email');
+    const nomeIndex = findColumnIndex(headers, 'Nome');
+    const senhaIndex = findColumnIndex(headers, 'Senha');
+    const tipoIndex = findColumnIndex(headers, 'Tipo');
+    const permissaoIndex = findColumnIndex(headers, 'Permissao');
+
+    // Encontra o índice da linha do usuário
+    const userRowIndex = rows.findIndex(row => 
+      row[emailIndex] && row[emailIndex].toLowerCase().trim() === emailParam.toLowerCase().trim()
+    );
+
+    if (userRowIndex === -1) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+
+    // Atualiza os campos (a linha real na planilha é userRowIndex + 2 porque header é linha 1 e índice começa em 0)
+    const rowNumber = userRowIndex + 2;
+    
+    // Atualiza nome
+    const nomeColLetter = String.fromCharCode(65 + nomeIndex);
+    await writeSheet(USUARIOS_SHEET, `${nomeColLetter}${rowNumber}`, [[nome.trim()]]);
+    
+    // Atualiza senha apenas se fornecida
+    if (senha && senha.trim()) {
+      const senhaColLetter = String.fromCharCode(65 + senhaIndex);
+      await writeSheet(USUARIOS_SHEET, `${senhaColLetter}${rowNumber}`, [[senha]]);
+    }
+    
+    // Atualiza tipo
+    const tipoColLetter = String.fromCharCode(65 + tipoIndex);
+    await writeSheet(USUARIOS_SHEET, `${tipoColLetter}${rowNumber}`, [[tipo]]);
+    
+    // Atualiza permissão
+    const permissaoColLetter = String.fromCharCode(65 + permissaoIndex);
+    await writeSheet(USUARIOS_SHEET, `${permissaoColLetter}${rowNumber}`, [[permissao]]);
+
+    res.json({
+      ok: true,
+      message: 'Usuário atualizado com sucesso',
+      usuario: {
+        email: emailParam,
+        nome: nome.trim(),
+        tipo,
+        permissao
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Erro ao atualizar usuário: ' + error.message
+    });
+  }
+});
+
+// ROTA: Excluir usuário
+app.delete('/api/usuarios/:email', async (req, res) => {
+  try {
+    await ensureUsuariosColumnsExist();
+
+    const emailParam = decodeURIComponent(req.params.email);
+
+    const data = await readSheet(USUARIOS_SHEET);
+    const headers = data[0] || [];
+    const rows = data.slice(1);
+    
+    const emailIndex = findColumnIndex(headers, 'Email');
+
+    // Encontra o índice da linha do usuário
+    const userRowIndex = rows.findIndex(row => 
+      row[emailIndex] && row[emailIndex].toLowerCase().trim() === emailParam.toLowerCase().trim()
+    );
+
+    if (userRowIndex === -1) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+
+    // Remove a linha (a linha real na planilha é userRowIndex + 2)
+    const rowNumber = userRowIndex + 2;
+    
+    // Usa batchUpdate para deletar a linha
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      resource: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(USUARIOS_SHEET),
+              dimension: 'ROWS',
+              startIndex: rowNumber - 1, // Índice baseado em 0
+              endIndex: rowNumber
+            }
+          }
+        }]
+      }
+    });
+
+    res.json({
+      ok: true,
+      message: 'Usuário excluído com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao excluir usuário:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Erro ao excluir usuário: ' + error.message
+    });
+  }
+});
+
+// Função auxiliar para obter o ID da aba
+async function getSheetId(sheetName) {
+  try {
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID
+    });
+    
+    const sheet = response.data.sheets.find(s => s.properties.title === sheetName);
+    return sheet ? sheet.properties.sheetId : null;
+  } catch (error) {
+    console.error('Erro ao obter ID da aba:', error);
+    throw error;
+  }
+}
+
 // ROTA: Health check
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, status: 'online' });
@@ -980,6 +1449,7 @@ async function startServer() {
   await initGoogleSheets();
   await ensureColumnsExist();
   await ensurePromotorColumnsExist();
+  await ensureUsuariosColumnsExist();
 
   app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
@@ -993,6 +1463,7 @@ if (process.env.VERCEL) {
   initGoogleSheets().then(() => {
     ensureColumnsExist();
     ensurePromotorColumnsExist();
+    ensureUsuariosColumnsExist();
   }).catch(console.error);
   
   module.exports = app;

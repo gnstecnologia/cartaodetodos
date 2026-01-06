@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerar Indicador - Cartão de Todos</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="faviconV2.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@700&family=Ubuntu:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Configuração da API - usa a origem atual (funciona local e produção)
+      window.API_BASE_URL = window.location.origin;
+    </script>
+    <style>
+      main {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .form-container {
+        width: 80%;
+        margin: 2rem auto;
+        padding: 65px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 24px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+        color: var(--color-dark);
+      }
+
+      .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+
+      .form-header h1 {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-background);
+        margin: 0 0 0.5rem;
+      }
+
+      .form-header p {
+        color: rgba(15, 31, 19, 0.7);
+        margin: 0;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .form-label {
+        display: block;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        color: var(--color-dark);
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+      }
+
+      .form-label.required::after {
+        content: ' *';
+        color: #e74c3c;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid rgba(15, 31, 19, 0.2);
+        border-radius: 12px;
+        font-family: 'Ubuntu', Arial, sans-serif;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: var(--color-white);
+        color: var(--color-dark);
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: var(--color-background);
+        box-shadow: 0 0 0 3px rgba(15, 138, 60, 0.1);
+      }
+
+      .form-input.error {
+        border-color: #e74c3c;
+      }
+
+      .form-input.success {
+        border-color: #27ae60;
+      }
+
+      .error-message {
+        color: #e74c3c;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        display: none;
+      }
+
+      .error-message.show {
+        display: block;
+      }
+
+      .success-message {
+        background: #27ae60;
+        color: var(--color-white);
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: none;
+      }
+
+      .success-message.show {
+        display: block;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 12px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary {
+        background: var(--color-background);
+        color: var(--color-white);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background: #0d6e2f;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: rgba(15, 31, 19, 0.1);
+        color: var(--color-dark);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(15, 31, 19, 0.2);
+      }
+
+      .loading {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--color-white);
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .result-card {
+        background: rgba(15, 138, 60, 0.1);
+        border: 2px solid var(--color-background);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+        display: none;
+      }
+
+      .result-card.show {
+        display: block;
+      }
+
+      .result-card h3 {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-background);
+        margin: 0 0 1rem;
+      }
+
+      .result-item {
+        margin-bottom: 0.75rem;
+      }
+
+      .result-label {
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.7);
+        font-size: 0.9rem;
+      }
+
+      .result-value {
+        color: var(--color-dark);
+        font-size: 1rem;
+        word-break: break-all;
+      }
+
+      .result-url {
+        background: rgba(15, 138, 60, 0.1);
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+      }
+
+      .copy-btn {
+        margin-top: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--color-background);
+        color: var(--color-white);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+      }
+
+      .copy-btn:hover {
+        background: #0d6e2f;
+      }
+
+      .nav-btn {
+        background: var(--color-background);
+        color: var(--color-white);
+        border: 2px solid var(--color-background);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(15, 138, 60, 0.3);
+      }
+
+      .nav-btn:hover {
+        background: #0d6e2f;
+        border-color: #0d6e2f;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.4);
+      }
+
+      @media (max-width: 1024px) {
+        .form-container {
+          width: 90%;
+          padding: 3rem;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .form-container {
+          width: 95%;
+          margin: 1rem auto;
+          padding: 2rem;
+        }
+
+        .form-header h1 {
+          font-size: 1.5rem;
+        }
+
+        .form-actions {
+          flex-direction: column;
+        }
+
+        .nav-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .form-container {
+          width: 95%;
+          margin: 0;
+          padding: 1.5rem;
+
+        }
+
+        .form-header h1 {
+          font-size: 1.5rem;
+        }
+
+        .form-header p {
+          font-size: 0.9rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="form-container">
+        <a href="dashboard.html" class="nav-btn">
+          <i class="fas fa-arrow-left"></i>
+          Voltar ao Dashboard
+        </a>
+
+        <div class="form-header">
+          <h1><i class="fas fa-user-plus"></i> Gerar Novo Indicador</h1>
+          <p>Preencha os dados para criar um novo indicador</p>
+        </div>
+
+        <div class="success-message" id="successMessage"></div>
+
+        <form id="indicadorForm">
+          <div class="form-group">
+            <label for="nome" class="form-label required">Nome Completo</label>
+            <input
+              type="text"
+              id="nome"
+              name="nome"
+              class="form-input"
+              placeholder="Digite o nome completo"
+              required
+            />
+            <span class="error-message" id="nomeError"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="telefone" class="form-label required">Telefone</label>
+            <input
+              type="tel"
+              id="telefone"
+              name="telefone"
+              class="form-input"
+              placeholder="(00) 00000-0000"
+              required
+            />
+            <span class="error-message" id="telefoneError"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="chavePix" class="form-label required">Chave Pix</label>
+            <input
+              type="text"
+              id="chavePix"
+              name="chavePix"
+              class="form-input"
+              placeholder="Digite a chave Pix"
+              required
+            />
+            <span class="error-message" id="chavePixError"></span>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+              <i class="fas fa-check"></i>
+              Criar Indicador
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="limparFormulario()">
+              <i class="fas fa-times"></i>
+              Limpar
+            </button>
+          </div>
+        </form>
+
+        <div class="result-card" id="resultCard">
+          <h3><i class="fas fa-check-circle"></i> Indicador Criado com Sucesso!</h3>
+          <div class="result-item">
+            <div class="result-label">ID:</div>
+            <div class="result-value" id="resultId"></div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">Nome:</div>
+            <div class="result-value" id="resultNome"></div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">Telefone:</div>
+            <div class="result-value" id="resultTelefone"></div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">Chave Pix:</div>
+            <div class="result-value" id="resultChavePix"></div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">URL:</div>
+            <div class="result-url" id="resultUrl"></div>
+            <button class="copy-btn" onclick="copiarUrl()">
+              <i class="fas fa-copy"></i> Copiar URL
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="scripts/users-config.js"></script>
+    <script src="scripts/gerar-indicador.js"></script>
+  </body>
+</html>
+

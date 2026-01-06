@@ -1,6 +1,4 @@
 // Configuração
-const DASHBOARD_EMAIL = 'admin@cartaodetodos.com.br';
-const DASHBOARD_PASSWORD = 'admin123'; // ALTERE ESTA SENHA! (mesma do dashboard)
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3000';
 const DATA_ENDPOINT = `${API_BASE_URL}/api/dashboard`;
 const UPDATE_ENDPOINT = `${API_BASE_URL}/api/leads`;
@@ -59,12 +57,21 @@ const STATUS_MAP = {
 
 // Verifica se está autenticado
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (isAuthenticated) {
-    showCRM();
-    loadCRM();
+  const userData = sessionStorage.getItem('userData');
+  if (userData) {
+    try {
+      JSON.parse(userData);
+      sessionStorage.setItem('dashboardAuth', 'true');
+      showCRM();
+      loadCRM();
+      return true;
+    } catch {
+      showLogin();
+      return false;
+    }
   } else {
     showLogin();
+    return false;
   }
 }
 
@@ -81,29 +88,49 @@ function showCRM() {
 }
 
 // Login
-document.getElementById('loginForm').addEventListener('submit', (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('emailInput').value.trim().toLowerCase();
   const password = document.getElementById('passwordInput').value;
   const errorEl = document.getElementById('loginError');
+  const submitBtn = document.querySelector('#loginForm button[type="submit"]');
+  
+  // Desabilita botão durante verificação
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
 
-  if (email === DASHBOARD_EMAIL && password === DASHBOARD_PASSWORD) {
-    sessionStorage.setItem('dashboardAuth', 'true');
-    showCRM();
-    loadCRM();
-    errorEl.style.display = 'none';
-    document.getElementById('emailInput').value = '';
-    document.getElementById('passwordInput').value = '';
-  } else {
-    errorEl.textContent = 'E-mail ou senha incorretos!';
+  try {
+    const resultado = await verificarCredenciais(email, password);
+    
+    if (resultado.sucesso) {
+      sessionStorage.setItem('dashboardAuth', 'true');
+      sessionStorage.setItem('userData', JSON.stringify(resultado.usuario));
+      showCRM();
+      loadCRM();
+      atualizarPerfilUsuario();
+      errorEl.style.display = 'none';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('passwordInput').value = '';
+    } else {
+      errorEl.textContent = 'E-mail ou senha incorretos!';
+      errorEl.style.display = 'block';
+      document.getElementById('passwordInput').value = '';
+    }
+  } catch (error) {
+    console.error('Erro ao verificar credenciais:', error);
+    errorEl.textContent = 'Erro ao verificar credenciais. Tente novamente.';
     errorEl.style.display = 'block';
-    document.getElementById('passwordInput').value = '';
+  } finally {
+    // Reabilita botão
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Entrar';
   }
 });
 
 // Logout
 function logout() {
   sessionStorage.removeItem('dashboardAuth');
+  sessionStorage.removeItem('userData');
   showLogin();
   document.getElementById('emailInput').value = '';
   document.getElementById('passwordInput').value = '';
@@ -371,7 +398,10 @@ function processCRMData(data) {
 function createCard(lead, status = null) {
   const card = document.createElement('div');
   card.className = 'kanban-card';
-  card.draggable = true;
+  // Toggle drag-and-drop by changing this flag to true/false
+  // Set to false to make the Kanban read-only (no drag/drop)
+  const ENABLE_KANBAN_DRAG = false;
+  card.draggable = !!ENABLE_KANBAN_DRAG;
   card.dataset.leadId = lead.id || lead.ID || '';
   const cardStatus = status || getLeadStatus(lead);
   card.dataset.currentStatus = cardStatus;
@@ -451,6 +481,8 @@ function formatDate(dateString) {
 
 // Inicializa drag and drop
 function initDragAndDrop() {
+  // If dragging is disabled globally, skip attaching drag/drop handlers
+  if (typeof ENABLE_KANBAN_DRAG !== 'undefined' && !ENABLE_KANBAN_DRAG) return;
   const cards = document.querySelectorAll('.kanban-card');
   const columns = document.querySelectorAll('.kanban-column');
 

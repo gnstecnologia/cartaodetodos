@@ -39,17 +39,25 @@ function parseBrazilianDate(dateString) {
 
 // Verifica autenticação
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (!isAuthenticated) {
+  const userData = sessionStorage.getItem('userData');
+  if (!userData) {
     window.location.href = 'dashboard.html';
     return false;
   }
-  return true;
+  try {
+    JSON.parse(userData);
+    sessionStorage.setItem('dashboardAuth', 'true');
+    return true;
+  } catch {
+    window.location.href = 'dashboard.html';
+    return false;
+  }
 }
 
 // Logout
 function logout() {
   sessionStorage.removeItem('dashboardAuth');
+  sessionStorage.removeItem('userData');
   window.location.href = 'dashboard.html';
 }
 
@@ -87,6 +95,9 @@ async function loadPromotores() {
 
     valorPlano = data.valorPlano || 59.99;
     allPromotoresData = data.promotores || [];
+
+    console.log('Promotores carregados:', allPromotoresData.length);
+    console.log('Dados dos promotores:', allPromotoresData);
 
     // Aplica filtros
     applyFilters();
@@ -128,6 +139,11 @@ function formatDate(dateString) {
 
 // Aplica filtros
 function applyFilters() {
+  if (!allPromotoresData || allPromotoresData.length === 0) {
+    console.warn('Nenhum dado de promotores disponível para filtrar');
+    return;
+  }
+
   const searchTerm = (document.getElementById('searchFilter')?.value || '').toLowerCase().trim();
 
   filteredPromotores = allPromotoresData.filter(promotor => {
@@ -141,7 +157,7 @@ function applyFilters() {
   });
 
   // Mantém ordenação por valor gerado
-  filteredPromotores.sort((a, b) => b.valorGerado - a.valorGerado);
+  filteredPromotores.sort((a, b) => (b.valorGerado || 0) - (a.valorGerado || 0));
 
   currentPage = 1;
   renderPromotores();
@@ -158,19 +174,27 @@ function clearFilters() {
 // Renderiza promotores
 function renderPromotores() {
   const gridEl = document.getElementById('promotoresGrid');
+  if (!gridEl) {
+    console.error('Elemento promotoresGrid não encontrado!');
+    return;
+  }
+  
   const totalPages = Math.ceil(filteredPromotores.length / ITEMS_PER_PAGE);
   
-    if (filteredPromotores.length === 0) {
-      gridEl.innerHTML = `
+  if (filteredPromotores.length === 0) {
+    gridEl.innerHTML = `
       <div class="empty-state">
-          <i class="fas fa-inbox"></i>
-          <h3>Nenhum promotor encontrado</h3>
-          <p>Tente ajustar os filtros de busca.</p>
-        </div>
-      `;
-      document.getElementById('pagination').innerHTML = '';
-      return;
+        <i class="fas fa-inbox"></i>
+        <h3>Nenhum promotor encontrado</h3>
+        <p>Tente ajustar os filtros de busca.</p>
+      </div>
+    `;
+    const paginationEl = document.getElementById('pagination');
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
     }
+    return;
+  }
 
     // Calcula índices da página atual
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -179,16 +203,18 @@ function renderPromotores() {
 
   // Renderiza cards
   gridEl.innerHTML = pagePromotores.map((promotor, index) => {
-    const rank = startIndex + index + 1;
-    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
-    
-    return `
-      <div class="promotor-card" onclick="viewPromotorLeads('${encodeURIComponent(promotor.nome)}')" style="animation-delay: ${index * 0.05}s;">
-      <div class="promotor-card-header">
-        <h3 class="promotor-name">${promotor.nome}</h3>
-          <span class="promotor-rank ${rankClass}">#${rank}</span>
-      </div>
+    try {
+      const rank = startIndex + index + 1;
+      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+      const leadsPorStatus = promotor.leadsPorStatus || {};
       
+      return `
+        <div class="promotor-card" onclick="viewPromotorLeads('${encodeURIComponent(promotor.nome || '')}')" style="animation-delay: ${index * 0.05}s;">
+        <div class="promotor-card-header">
+          <h3 class="promotor-name">${promotor.nome || 'Sem nome'}</h3>
+          <span class="promotor-rank ${rankClass}">#${rank}</span>
+        </div>
+        
         <div class="promotor-stats">
           <div class="stat-item valor-gerado-item">
             <span class="stat-label">
@@ -202,41 +228,41 @@ function renderPromotores() {
               <i class="fas fa-hand-pointer"></i>
               Total de Leads
             </span>
-            <span class="stat-value">${promotor.totalLeads}</span>
+            <span class="stat-value">${promotor.totalLeads || 0}</span>
           </div>
         </div>
 
         <div class="status-breakdown">
-          ${promotor.leadsPorStatus['Nova Indicação'] > 0 ? `
+          ${(leadsPorStatus['Nova Indicação'] || 0) > 0 ? `
             <span class="status-badge status-nova">
               <i class="fas fa-star"></i>
-              Nova: ${promotor.leadsPorStatus['Nova Indicação']}
+              Nova: ${leadsPorStatus['Nova Indicação']}
             </span>
           ` : ''}
-          ${promotor.leadsPorStatus['Em Contato'] > 0 ? `
+          ${(leadsPorStatus['Em Contato'] || 0) > 0 ? `
             <span class="status-badge status-contato">
               <i class="fas fa-phone"></i>
-              Contato: ${promotor.leadsPorStatus['Em Contato']}
+              Contato: ${leadsPorStatus['Em Contato']}
             </span>
           ` : ''}
-          ${promotor.leadsPorStatus['Em Negociação'] > 0 ? `
+          ${(leadsPorStatus['Em Negociação'] || 0) > 0 ? `
             <span class="status-badge status-negociacao">
               <i class="fas fa-handshake"></i>
-              Negociação: ${promotor.leadsPorStatus['Em Negociação']}
+              Negociação: ${leadsPorStatus['Em Negociação']}
             </span>
           ` : ''}
-          ${promotor.leadsPorStatus['Fechado'] > 0 ? `
+          ${(leadsPorStatus['Fechado'] || 0) > 0 ? `
             <span class="status-badge status-fechado">
               <i class="fas fa-check-circle"></i>
-              Fechado: ${promotor.leadsPorStatus['Fechado']}
+              Fechado: ${leadsPorStatus['Fechado']}
             </span>
           ` : ''}
-          ${promotor.leadsPorStatus['Perdido'] > 0 ? `
+          ${(leadsPorStatus['Perdido'] || 0) > 0 ? `
             <span class="status-badge status-perdido">
               <i class="fas fa-times-circle"></i>
-              Perdido: ${promotor.leadsPorStatus['Perdido']}
+              Perdido: ${leadsPorStatus['Perdido']}
             </span>
-        ` : ''}
+          ` : ''}
         </div>
 
         <div class="promotor-footer">
@@ -249,10 +275,16 @@ function renderPromotores() {
               <i class="fas fa-users"></i>
               ${promotor.indicadores.length} indicador${promotor.indicadores.length > 1 ? 'es' : ''}
             </span>
-        ` : ''}
+          ` : ''}
+        </div>
       </div>
-    </div>
-    `;
+      `;
+    } catch (error) {
+      console.error('Erro ao renderizar card do promotor:', error, promotor);
+      return `<div class="promotor-card" style="border: 2px solid red;">
+        <p>Erro ao carregar dados do promotor</p>
+      </div>`;
+    }
   }).join('');
 
     // Renderiza paginação
@@ -338,7 +370,46 @@ function changePage(page) {
   renderPromotores();
   
   // Scroll para o topo
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Exporta dados de promotores
+function exportPromotoresListData(format) {
+  if (!filteredPromotores || filteredPromotores.length === 0) {
+    alert('Nenhum dado disponível para exportar!');
+    return;
+  }
+
+  const headers = [
+    'Nome',
+    'Telefone',
+    'Valor Gerado (R$)',
+    'Total de Leads',
+    'Leads Fechados',
+    'Taxa de Conversão (%)'
+  ];
+
+  const rowMapper = (promotor) => {
+    return [
+      promotor.nome || 'N/A',
+      promotor.telefone || 'N/A',
+      (promotor.valorGerado || 0).toFixed(2),
+      promotor.totalLeads || 0,
+      promotor.leadsFechados || 0,
+      (promotor.taxaConversao || 0).toFixed(2)
+    ];
+  };
+
+  const agora = new Date();
+  const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
+  const filename = `promotores_${dataStr}`;
+
+  if (format === 'csv') {
+    exportToCSV(filteredPromotores, filename, headers, rowMapper);
+  } else if (format === 'excel') {
+    exportToExcel(filteredPromotores, filename, headers, rowMapper);
+  } else if (format === 'txt') {
+    exportToTXT(filteredPromotores, filename, headers, rowMapper);
+  }
 }
 
 // Visualiza leads do promotor
@@ -369,6 +440,8 @@ function viewPromotorLeads(promotorNome) {
 }
 
 // Inicialização
-if (checkAuth()) {
-  loadPromotores();
-}
+document.addEventListener('DOMContentLoaded', () => {
+  if (checkAuth()) {
+    loadPromotores();
+  }
+});

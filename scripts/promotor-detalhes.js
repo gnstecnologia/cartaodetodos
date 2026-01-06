@@ -39,12 +39,19 @@ function parseBrazilianDate(dateString) {
 
 // Verifica autenticação
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (!isAuthenticated) {
+  const userData = sessionStorage.getItem('userData');
+  if (!userData) {
     window.location.href = 'dashboard.html';
     return false;
   }
-  return true;
+  try {
+    JSON.parse(userData);
+    sessionStorage.setItem('dashboardAuth', 'true');
+    return true;
+  } catch {
+    window.location.href = 'dashboard.html';
+    return false;
+  }
 }
 
 // Formata valor em reais
@@ -103,11 +110,14 @@ async function loadPromotorData() {
     // Se não tiver no sessionStorage, busca da API usando parâmetro da URL
     if (!stored) {
       const params = new URLSearchParams(window.location.search);
-      const promotorNome = params.get('promotor');
+      const promotorNomeEncoded = params.get('promotor');
       
-      if (!promotorNome) {
-        throw new Error('Promotor não especificado');
+      if (!promotorNomeEncoded) {
+        throw new Error('Promotor não especificado na URL');
       }
+
+      const promotorNome = decodeURIComponent(promotorNomeEncoded);
+      console.log('Buscando promotor:', promotorNome);
 
       // Busca dados da API
       const response = await fetch(`${API_BASE_URL}/api/promotores`);
@@ -120,11 +130,23 @@ async function loadPromotorData() {
         throw new Error(data.message || 'Erro ao processar dados');
       }
 
-      // Encontra o promotor pelo nome
-      const promotor = data.promotores.find(p => p.nome === decodeURIComponent(promotorNome));
+      console.log('Promotores recebidos da API:', data.promotores?.length || 0);
+      console.log('Nomes dos promotores:', data.promotores?.map(p => p.nome) || []);
+
+      // Encontra o promotor pelo nome (case-insensitive e trim)
+      const promotor = data.promotores?.find(p => {
+        const nomePromotor = (p.nome || '').trim();
+        const nomeBuscado = promotorNome.trim();
+        return nomePromotor.toLowerCase() === nomeBuscado.toLowerCase();
+      });
+
       if (!promotor) {
-        throw new Error('Promotor não encontrado');
+        console.error('Promotor não encontrado. Nome buscado:', promotorNome);
+        console.error('Promotores disponíveis:', data.promotores?.map(p => p.nome) || []);
+        throw new Error(`Promotor "${promotorNome}" não encontrado`);
       }
+
+      console.log('Promotor encontrado:', promotor);
 
       // Prepara dados no formato esperado
       promotorData = {
@@ -144,13 +166,25 @@ async function loadPromotorData() {
       promotorData = JSON.parse(stored);
     }
 
-    allLeads = promotorData.leads || [];
+    // Garante que cada lead tem um ID único
+    allLeads = (promotorData.leads || []).map((lead, index) => {
+      if (!lead.id && !lead.ID) {
+        lead.id = `${lead.nome || 'lead'}_${lead.telefone || index}_${index}`;
+      }
+      return lead;
+    });
+    console.log('Leads carregados:', allLeads.length);
 
     // Atualiza título
-    document.getElementById('promotorNome').innerHTML = `
+    const nomeEl = document.getElementById('promotorNome');
+    if (nomeEl) {
+      nomeEl.innerHTML = `
       <i class="fas fa-user-tie"></i>
       ${promotorData.nome}
     `;
+    } else {
+      console.error('Elemento promotorNome não encontrado!');
+    }
 
     // Renderiza métricas
     renderMetricas();
@@ -170,8 +204,18 @@ async function loadPromotorData() {
 
 // Renderiza métricas
 function renderMetricas() {
+  if (!promotorData || !promotorData.metricas) {
+    console.error('Dados do promotor não disponíveis para renderizar métricas');
+    return;
+  }
+
   const metricas = promotorData.metricas;
   const metricasGrid = document.getElementById('metricasGrid');
+  
+  if (!metricasGrid) {
+    console.error('Elemento metricasGrid não encontrado!');
+    return;
+  }
 
   metricasGrid.innerHTML = `
     <div class="metrica-card valor-gerado-card">
@@ -297,7 +341,13 @@ function clearFilters() {
 // Renderiza leads
 function renderLeads() {
   const listEl = document.getElementById('leadsList');
+  if (!listEl) {
+    console.error('Elemento leadsList não encontrado!');
+    return;
+  }
+
   const totalPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
+  console.log('Renderizando leads:', filteredLeads.length, 'Total de páginas:', totalPages);
 
   if (filteredLeads.length === 0) {
     listEl.innerHTML = `
@@ -307,7 +357,10 @@ function renderLeads() {
         <p>Tente ajustar os filtros de busca.</p>
       </div>
     `;
-    document.getElementById('pagination').innerHTML = '';
+    const paginationEl = document.getElementById('pagination');
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
+    }
     return;
   }
 
@@ -317,13 +370,17 @@ function renderLeads() {
   const pageLeads = filteredLeads.slice(startIndex, endIndex);
 
   // Renderiza cards
-  listEl.innerHTML = pageLeads.map(lead => {
+  listEl.innerHTML = pageLeads.map((lead, pageIndex) => {
     const nome = lead.nome || 'Sem nome';
     const telefone = lead.telefone || 'Sem telefone';
     const status = lead.status || 'Nova Indicação';
     const dataHora = lead.dataHora || '';
     const vendedor = lead.vendedor || '';
     const statusClass = getStatusClass(status);
+    
+    // Usa ID do lead ou cria um identificador único baseado em nome e telefone
+    // Não usa index para evitar problemas com paginação
+    const leadId = lead.id || lead.ID || `${(lead.nome || 'lead').replace(/[^a-zA-Z0-9]/g, '_')}_${(lead.telefone || '').replace(/[^a-zA-Z0-9]/g, '_')}`;
 
     return `
       <div class="lead-card">
@@ -354,6 +411,16 @@ function renderLeads() {
               <span style="color: #10b981; font-weight: 700;">Valor: ${formatCurrency(VALOR_PLANO)}/mês</span>
             </div>
           ` : ''}
+        </div>
+        <div class="lead-actions">
+          <button 
+            class="timeline-btn" 
+            onclick="showTimeline('${leadId}')"
+            title="Ver timeline do lead"
+          >
+            <i class="fas fa-clock-rotate-left"></i>
+            Ver Timeline
+          </button>
         </div>
       </div>
     `;
@@ -442,11 +509,211 @@ function changePage(page) {
   renderLeads();
   
   // Scroll para o topo
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Exporta dados de leads do promotor
+function exportPromotorLeadsData(format) {
+  if (!filteredLeads || filteredLeads.length === 0) {
+    alert('Nenhum dado disponível para exportar!');
+    return;
+  }
+
+  const headers = [
+    'Data e Hora',
+    'Nome',
+    'Telefone',
+    'Status',
+    'Valor (R$)'
+  ];
+
+  const rowMapper = (lead) => {
+    const dataHora = lead.dataHora 
+      ? new Date(lead.dataHora).toLocaleString('pt-BR')
+      : 'N/A';
+    const valor = lead.status === 'Fechado' ? '59.99' : '0.00';
+    return [
+      dataHora,
+      lead.nome || 'N/A',
+      lead.telefone || 'N/A',
+      lead.status || 'N/A',
+      valor
+    ];
+  };
+
+  const agora = new Date();
+  const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
+  const promotorNome = promotorData?.nome || 'promotor';
+  const filename = `leads_${promotorNome}_${dataStr}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+  if (format === 'csv') {
+    exportToCSV(filteredLeads, filename, headers, rowMapper);
+  } else if (format === 'excel') {
+    exportToExcel(filteredLeads, filename, headers, rowMapper);
+  } else if (format === 'txt') {
+    exportToTXT(filteredLeads, filename, headers, rowMapper);
+  }
+}
+
+// Busca timeline do lead
+async function loadTimeline(leadId) {
+  try {
+    // Primeiro, procura o lead nos dados já carregados
+    // O leadId pode ser um ID numérico ou um identificador composto
+    let lead = null;
+    
+    // Tenta encontrar por ID direto primeiro
+    if (!isNaN(leadId)) {
+      lead = allLeads.find(l => {
+        const id = l.id || l.ID;
+        return id && String(id) === String(leadId);
+      });
+    }
+    
+    // Se não encontrou, tenta pelo identificador composto (nome_telefone_index)
+    if (!lead) {
+      lead = allLeads.find((l, index) => {
+        const nomeSanitizado = (l.nome || 'lead').replace(/[^a-zA-Z0-9]/g, '_');
+        const telefoneSanitizado = (l.telefone || index).replace(/[^a-zA-Z0-9]/g, '_');
+        const idGerado = `${nomeSanitizado}_${telefoneSanitizado}_${index}`;
+        return String(idGerado) === String(leadId);
+      });
+    }
+    
+    // Se ainda não encontrou, tenta match parcial (nome e telefone)
+    if (!lead) {
+      lead = allLeads.find(l => {
+        const nomeSanitizado = (l.nome || 'lead').replace(/[^a-zA-Z0-9]/g, '_');
+        const telefoneSanitizado = (l.telefone || '').replace(/[^a-zA-Z0-9]/g, '_');
+        return leadId.includes(nomeSanitizado) && leadId.includes(telefoneSanitizado);
+      });
+    }
+    
+    // Se encontrou o lead e tem logStatus, usa ele
+    if (lead && lead.logStatus) {
+      try {
+        const timeline = typeof lead.logStatus === 'string' 
+          ? JSON.parse(lead.logStatus) 
+          : lead.logStatus;
+        if (Array.isArray(timeline) && timeline.length > 0) {
+          return timeline;
+        }
+      } catch (error) {
+        console.error('Erro ao parsear logStatus:', error);
+      }
+    }
+    
+    // Se não tem logStatus no lead, tenta buscar pela API usando ID numérico
+    if (!isNaN(leadId)) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/timeline`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.timeline && data.timeline.length > 0) {
+            return data.timeline;
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar timeline da API:', error);
+      }
+    }
+    
+    // Se não encontrou timeline, cria uma básica com a data de criação
+    if (lead && lead.dataHora) {
+      return [{
+        status: lead.status || 'Nova Indicação',
+        data: lead.dataHora,
+        origem: 'sistema'
+      }];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Erro ao buscar timeline:', error);
+    return [];
+  }
+}
+
+// Mostra timeline
+async function showTimeline(leadId) {
+  const timeline = await loadTimeline(leadId);
+  const modal = document.getElementById('timelineModal');
+  const content = document.getElementById('timelineContent');
+  
+  if (!modal || !content) {
+    console.error('Modal de timeline não encontrado!');
+    return;
+  }
+  
+  if (timeline.length === 0) {
+    content.innerHTML = `
+      <div style="text-align: center; padding: 3rem 1rem; color: rgba(15, 31, 19, 0.5);">
+        <i class="fas fa-info-circle" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+        <p>Nenhum histórico disponível para este lead.</p>
+      </div>
+    `;
+  } else {
+    content.innerHTML = timeline.map((entry, index) => {
+      const statusIcons = {
+        'Nova Indicação': 'fa-star',
+        'Em Contato': 'fa-phone',
+        'Em Negociação': 'fa-handshake',
+        'Fechado': 'fa-check-circle',
+        'Perdido': 'fa-times-circle'
+      };
+      
+      const statusColors = {
+        'Nova Indicação': '#2563eb',
+        'Em Contato': '#f59e0b',
+        'Em Negociação': '#8b5cf6',
+        'Fechado': '#10b981',
+        'Perdido': '#ef4444'
+      };
+      
+      const status = entry.status || entry.Status || 'Nova Indicação';
+      const icon = statusIcons[status] || 'fa-circle';
+      const color = statusColors[status] || '#666';
+      
+      // Tenta múltiplos campos de data
+      const dataHora = entry.data || entry.dataHora || entry.dataHoraStatus || entry.timestamp || entry.dataHora || '';
+      
+      return `
+        <div style="display: flex; gap: 1rem; padding: 1rem; border-radius: 12px; background: rgba(15, 138, 60, 0.05); margin-bottom: 1rem; border-left: 4px solid ${color};">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: ${color}; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
+            <i class="fas ${icon}"></i>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 700; color: var(--color-dark); margin-bottom: 0.25rem;">${status}</div>
+            <div style="font-size: 0.9rem; color: rgba(15, 31, 19, 0.6);">${dataHora ? formatDate(dataHora) : 'Data não disponível'}</div>
+            ${entry.observacao ? `<div style="margin-top: 0.5rem; font-size: 0.9rem; color: rgba(15, 31, 19, 0.7);">${entry.observacao}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  modal.style.display = 'flex';
+}
+
+// Fecha modal de timeline
+function closeTimelineModal() {
+  const modal = document.getElementById('timelineModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// Fecha modal ao clicar fora
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('timelineModal');
+  if (modal && e.target === modal) {
+    closeTimelineModal();
+  }
+});
+
 // Inicialização
+document.addEventListener('DOMContentLoaded', () => {
 if (checkAuth()) {
   loadPromotorData();
 }
+});
 

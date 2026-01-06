@@ -14,17 +14,25 @@ let chartFunil = null;
 
 // Verifica autenticação
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (!isAuthenticated) {
+  const userData = sessionStorage.getItem('userData');
+  if (!userData) {
     window.location.href = 'dashboard.html';
     return false;
   }
-  return true;
+  try {
+    JSON.parse(userData);
+    sessionStorage.setItem('dashboardAuth', 'true');
+    return true;
+  } catch {
+    window.location.href = 'dashboard.html';
+    return false;
+  }
 }
 
 // Logout
 function logout() {
   sessionStorage.removeItem('dashboardAuth');
+  sessionStorage.removeItem('userData');
   window.location.href = 'dashboard.html';
 }
 
@@ -137,6 +145,56 @@ function clearFilters() {
   document.getElementById('dateFilterFim').value = '';
   document.getElementById('sortFilter').value = 'valor';
   loadDashboard();
+}
+
+// Exporta dados de promotores
+function exportPromotoresData(format) {
+  if (!filteredPromotoresData || filteredPromotoresData.length === 0) {
+    alert('Nenhum dado disponível para exportar!');
+    return;
+  }
+
+  // Define cabeçalhos
+  const headers = [
+    'Nome',
+    'Telefone',
+    'Total de Leads',
+    'Leads Contato',
+    'Leads Fechados',
+    'Leads Perdidos',
+    'Valor Gerado (R$)',
+    'Taxa de Conversão (%)',
+    'Número de Indicadores'
+  ];
+
+  // Mapeia dados para exportação
+  const rowMapper = (promotor) => {
+    return [
+      promotor.nome || 'N/A',
+      promotor.telefone || 'N/A',
+      promotor.totalLeads || 0,
+      promotor.leadsContato || 0,
+      promotor.leadsFechados || 0,
+      promotor.leadsPerdidos || 0,
+      (promotor.valorGerado || 0).toFixed(2),
+      (promotor.taxaConversao || 0).toFixed(2),
+      promotor.numIndicadores || 0
+    ];
+  };
+
+  // Gera nome do arquivo com data
+  const agora = new Date();
+  const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
+  const filename = `dashboard_promotores_${dataStr}`;
+
+  // Exporta conforme formato
+  if (format === 'csv') {
+    exportToCSV(filteredPromotoresData, filename, headers, rowMapper);
+  } else if (format === 'excel') {
+    exportToExcel(filteredPromotoresData, filename, headers, rowMapper);
+  } else if (format === 'txt') {
+    exportToTXT(filteredPromotoresData, filename, headers, rowMapper);
+  }
 }
 
 // Atualiza métricas principais
@@ -502,5 +560,37 @@ function viewPromotorDetalhes(promotorNome) {
 // Inicialização
 if (checkAuth()) {
   loadDashboard();
+  
+  // Inicializa botões de exportação após um pequeno delay
+  setTimeout(initializeExportButtons, 500);
+}
+
+// Inicializa botões de exportação
+function initializeExportButtons() {
+  addExportButtonsStyles();
+  const container = document.getElementById('exportButtonsContainer');
+  if (container) {
+    container.innerHTML = createExportButtons('exportButtons');
+    
+    // Coleta dados do dashboard para exportação
+    const dashboardData = {
+      resumo: {
+        totalPromotores: document.getElementById('totalPromotores')?.textContent || '0',
+        totalLeads: document.getElementById('totalLeads')?.textContent || '0',
+        leadsFechados: document.getElementById('leadsFechados')?.textContent || '0'
+      }
+    };
+    
+    // Adiciona event listeners
+    document.getElementById('exportCSV')?.addEventListener('click', () => {
+      const dados = formatDashboardForExport(dashboardData);
+      exportToCSV(dados, `dashboard_promotores_${new Date().toISOString().split('T')[0]}.csv`);
+    });
+    
+    document.getElementById('exportExcel')?.addEventListener('click', () => {
+      const dados = formatDashboardForExport(dashboardData);
+      exportToExcel(dados, `dashboard_promotores_${new Date().toISOString().split('T')[0]}.xlsx`);
+    });
+  }
 }
 

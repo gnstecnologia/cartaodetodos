@@ -108,6 +108,217 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       }
 
+      .user-profile {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+      }
+
+      .user-profile i {
+        font-size: 1.5rem;
+        color: var(--color-highlight);
+      }
+
+      .user-profile .user-type {
+        background: rgba(166, 255, 0, 0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--color-highlight);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* Organização de grupos de botões */
+      .nav-groups {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .nav-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .nav-separator {
+        width: 1px;
+        height: 30px;
+        background: rgba(255, 255, 255, 0.3);
+        margin: 0 0.5rem;
+      }
+
+      /* Menu Mobile */
+      .mobile-menu-toggle {
+        display: none;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: var(--color-white);
+        padding: 0.75rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+        z-index: 1001;
+      }
+
+      .mobile-menu-toggle:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .mobile-menu-toggle.active {
+        background: var(--color-background);
+      }
+
+      /* Esconde o botão hambúrguer quando o menu está aberto */
+      .mobile-menu.active ~ * .mobile-menu-toggle,
+      body:has(.mobile-menu.active) .mobile-menu-toggle {
+        display: none !important;
+      }
+
+      .mobile-menu-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .mobile-menu-overlay.active {
+        display: block;
+        opacity: 1;
+      }
+
+      .mobile-menu {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 85%;
+        max-width: 400px;
+        height: 100vh;
+        background: linear-gradient(135deg, var(--color-background), #0d6e2f);
+        z-index: 1000;
+        padding: 2rem;
+        overflow-y: auto;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .mobile-menu.active {
+        right: 0;
+      }
+
+      .mobile-menu-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .mobile-menu-title {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-white);
+        margin: 0;
+      }
+
+      .mobile-menu-close {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: var(--color-white);
+        padding: 0.5rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.25rem;
+        transition: all 0.3s ease;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .mobile-menu-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+      }
+
+      .mobile-menu-section {
+        margin-bottom: 2rem;
+      }
+
+      .mobile-menu-section-title {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 1rem;
+      }
+
+      .mobile-menu-items {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .mobile-menu-item {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        text-decoration: none;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: all 0.3s ease;
+      }
+
+      .mobile-menu-item:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: translateX(5px);
+      }
+
+      .mobile-menu-item i {
+        font-size: 1.25rem;
+        width: 24px;
+        text-align: center;
+      }
+
+      .mobile-menu-item.special {
+        background: rgba(166, 255, 0, 0.2);
+        border-color: rgba(166, 255, 0, 0.4);
+      }
+
+      .mobile-menu-item.danger {
+        background: rgba(231, 76, 60, 0.2);
+        border-color: rgba(231, 76, 60, 0.4);
+      }
+
       .stats-row {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -584,6 +795,29 @@
           grid-template-columns: 1fr;
         }
 
+        .user-profile {
+          flex-wrap: wrap;
+          max-width: 100%;
+          padding: 0.6rem 1rem;
+          gap: 0.5rem;
+        }
+
+        .user-profile span:not(.user-type) {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .user-profile .user-type {
+          font-size: 0.75rem;
+          padding: 0.2rem 0.5rem;
+          width: 100%;
+          text-align: center;
+          margin-top: 0.25rem;
+        }
+
         .ranking-table tbody tr {
           grid-template-columns: 1fr;
           gap: 1rem;
@@ -600,24 +834,129 @@
 
         .dashboard-header {
           flex-direction: column;
-          align-items: stretch;
+          align-items: flex-start;
+          position: relative;
         }
 
-        .dashboard-header > div {
+        .mobile-menu-toggle {
           display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
+          align-items: center;
+          justify-content: center;
+          position: absolute;
+          top: 0;
+          right: 0;
+        }
+
+        /* Esconde o botão hambúrguer quando o menu está aberto */
+        .mobile-menu.active ~ * .mobile-menu-toggle,
+        body:has(.mobile-menu.active) .mobile-menu-toggle {
+          display: none !important;
+        }
+
+        .nav-groups {
+          display: none;
+        }
+
+        .nav-separator {
+          display: none;
+        }
+
+        .dashboard-title {
+          padding-right: 60px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .filters-section {
+          padding: 1.5rem;
+        }
+
+        .filters-section > div:first-child {
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 1rem;
+        }
+
+        .filters-section h2 {
+          margin-bottom: 1rem !important;
           width: 100%;
         }
 
-        .nav-btn, .refresh-btn {
+        .filters-section > div:first-child > div:last-child {
           width: 100%;
-          justify-content: center;
+          justify-content: flex-start !important;
+          margin-top: 0 !important;
         }
 
         .filters-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: 1fr !important;
+          gap: 1.25rem;
         }
+
+        .filter-group {
+          width: 100%;
+        }
+
+        .filter-input,
+        .filter-select,
+        .filter-btn {
+          width: 100%;
+        }
+
+        .export-btn {
+          flex: 1;
+          min-width: 100px;
+        }
+      }
+
+      .export-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 8px rgba(15, 138, 60, 0.2);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .export-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .export-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .export-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+      }
+
+      .export-btn:active {
+        transform: translateY(0);
+      }
+
+      .export-btn i {
+        font-size: 1rem;
       }
     </style>
   </head>
@@ -631,33 +970,77 @@
     <div class="dashboard-container">
       <div class="dashboard-header">
         <h1 class="dashboard-title">Dashboard de Promotores</h1>
-        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-          <a href="promotores.html" class="nav-btn">
-            <i class="fas fa-list"></i> Lista de Promotores
-          </a>
-          <a href="dashboard.html" class="nav-btn">
-            <i class="fas fa-chart-line"></i> Dashboard Geral
-          </a>
-          <a href="indicadores.html" class="nav-btn">
-            <i class="fas fa-users"></i> Indicadores
-          </a>
-          <a href="crm.html" class="nav-btn">
-            <i class="fas fa-tasks"></i> CRM
-          </a>
-          <button class="refresh-btn" onclick="loadDashboard()">
-            <i class="fas fa-sync-alt"></i> Atualizar
-          </button>
-          <button class="nav-btn" onclick="logout()">
-            <i class="fas fa-sign-out-alt"></i> Sair
-          </button>
+        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="nav-groups">
+          <!-- Grupo: Perfil -->
+          <div class="nav-group">
+            <div id="userProfile" class="user-profile" style="display: none;">
+              <i class="fas fa-user-circle"></i>
+              <span>Usuário</span>
+            </div>
+          </div>
+
+          <div class="nav-separator"></div>
+
+          <!-- Grupo: Navegação -->
+          <div class="nav-group">
+            <a href="promotores.html" class="nav-btn">
+              <i class="fas fa-list"></i> Lista de Promotores
+            </a>
+            <a href="dashboard.html" class="nav-btn">
+              <i class="fas fa-chart-line"></i> Dashboard Geral
+            </a>
+            <a href="indicadores.html" class="nav-btn">
+              <i class="fas fa-users"></i> Indicadores
+            </a>
+            <a href="crm.html" class="nav-btn">
+              <i class="fas fa-tasks"></i> CRM
+            </a>
+          </div>
+
+          <div class="nav-separator"></div>
+
+          <!-- Grupo: Ações -->
+          <div class="nav-group">
+            <button class="refresh-btn" onclick="loadDashboard()">
+              <i class="fas fa-sync-alt"></i> Atualizar
+            </button>
+            <a href="gerar-indicador.html" class="nav-btn" style="background: rgba(166, 255, 0, 0.2); border-color: rgba(166, 255, 0, 0.4); position: relative; z-index: 10;" onclick="event.stopPropagation(); window.location.href='gerar-indicador.html'; return false;" target="_self">
+              <i class="fas fa-user-plus"></i> Gerar Novo Indicador
+            </a>
+          </div>
+
+          <div class="nav-separator"></div>
+
+          <!-- Grupo: Sessão -->
+          <div class="nav-group">
+            <button class="nav-btn" onclick="logout()">
+              <i class="fas fa-sign-out-alt"></i> Sair
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Filtros Avançados -->
       <div class="filters-section">
-        <h2 style="font-family: 'Inter', 'Ubuntu', sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--color-dark); margin-bottom: 1.5rem;">
-          <i class="fas fa-filter"></i> Filtros Avançados
-        </h2>
+        <div style="display: flex; align-content: center; justify-content: space-between;">
+          <h2 style="font-family: 'Inter', 'Ubuntu', sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--color-dark); margin-bottom: 1.5rem;">
+            <i class="fas fa-filter"></i> Filtros Avançados
+          </h2>
+          <div style="display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap;">
+            <button onclick="exportPromotoresData('csv')" class="export-btn export-btn-csv" title="Baixar CSV">
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+            <button onclick="exportPromotoresData('excel')" class="export-btn export-btn-excel" title="Baixar Excel">
+              <i class="fas fa-file-excel"></i> Excel
+            </button>
+            <button onclick="exportPromotoresData('txt')" class="export-btn export-btn-txt" title="Baixar TXT">
+              <i class="fas fa-file-alt"></i> TXT
+            </button>
+          </div>
+        </div>
         <div class="filters-grid">
           <div class="filter-group">
             <label class="filter-label">
@@ -691,6 +1074,74 @@
           <div class="filter-group">
             <button class="filter-btn" onclick="clearFilters()">
               <i class="fas fa-times"></i> Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Menu Mobile -->
+      <div id="mobileMenuOverlay" class="mobile-menu-overlay"></div>
+      <div id="mobileMenu" class="mobile-menu">
+        <div class="mobile-menu-header">
+          <h2 class="mobile-menu-title">Menu</h2>
+          <button class="mobile-menu-close" onclick="closeMobileMenu()" aria-label="Fechar">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Perfil do Usuário -->
+        <div class="mobile-menu-section">
+          <div id="mobileUserProfile" class="user-profile" style="display: none; width: 100%; justify-content: flex-start; margin-bottom: 1rem;">
+            <i class="fas fa-user-circle"></i>
+            <span>Usuário</span>
+          </div>
+        </div>
+
+        <!-- Navegação -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">Navegação</div>
+          <div class="mobile-menu-items">
+            <a href="promotores.html" class="mobile-menu-item">
+              <i class="fas fa-list"></i>
+              <span>Lista de Promotores</span>
+            </a>
+            <a href="dashboard.html" class="mobile-menu-item">
+              <i class="fas fa-chart-line"></i>
+              <span>Dashboard Geral</span>
+            </a>
+            <a href="indicadores.html" class="mobile-menu-item">
+              <i class="fas fa-users"></i>
+              <span>Indicadores</span>
+            </a>
+            <a href="crm.html" class="mobile-menu-item">
+              <i class="fas fa-tasks"></i>
+              <span>CRM</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Ações -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">Ações</div>
+          <div class="mobile-menu-items">
+            <button class="mobile-menu-item" onclick="loadDashboard(); closeMobileMenu();" style="width: 100%; border: none; cursor: pointer; text-align: left;">
+              <i class="fas fa-sync-alt"></i>
+              <span>Atualizar</span>
+            </button>
+            <a href="gerar-indicador.html" class="mobile-menu-item special" id="mobileGerarIndicador">
+              <i class="fas fa-user-plus"></i>
+              <span>Gerar Novo Indicador</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Sessão -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">Sessão</div>
+          <div class="mobile-menu-items">
+            <button class="mobile-menu-item danger" onclick="logout(); closeMobileMenu();" style="width: 100%; border: none; cursor: pointer; text-align: left;">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Sair</span>
             </button>
           </div>
         </div>
@@ -911,6 +1362,10 @@
       </div>
     </div>
 
+    <script src="scripts/users-config.js"></script>
+    <script src="scripts/user-profile.js"></script>
+    <script src="scripts/mobile-menu.js"></script>
+    <script src="scripts/export-utils.js"></script>
     <script src="scripts/dashboard-promotores.js"></script>
   </body>
 </html>

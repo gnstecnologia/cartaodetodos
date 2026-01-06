@@ -1,6 +1,4 @@
 // Configuração
-const DASHBOARD_EMAIL = 'admin@cartaodetodos.com.br';
-const DASHBOARD_PASSWORD = 'admin123'; // ALTERE ESTA SENHA!
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3000';
 const DATA_ENDPOINT = `${API_BASE_URL}/api/dashboard`;
 
@@ -33,12 +31,22 @@ function getNomeIndicador(codigo) {
 
 // Verifica se está autenticado
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (isAuthenticated) {
-    showDashboard();
-    loadDashboard();
+  const userData = sessionStorage.getItem('userData');
+  if (userData) {
+    try {
+      const user = JSON.parse(userData);
+      sessionStorage.setItem('dashboardAuth', 'true');
+      showDashboard();
+      loadDashboard();
+      atualizarPerfilUsuario();
+      return true;
+    } catch {
+      showLogin();
+      return false;
+    }
   } else {
     showLogin();
+    return false;
   }
 }
 
@@ -54,30 +62,79 @@ function showDashboard() {
   document.getElementById('dashboardScreen').style.display = 'block';
 }
 
+// Função para atualizar perfil do usuário na interface
+function atualizarPerfilUsuario() {
+  const userData = sessionStorage.getItem('userData');
+  if (!userData) return;
+  
+  try {
+    const user = JSON.parse(userData);
+    const perfilElement = document.getElementById('userProfile');
+    if (perfilElement) {
+      perfilElement.innerHTML = `
+        <i class="fas fa-user-circle"></i>
+        <span>${user.nome}</span>
+        <span class="user-type">${user.tipo === 'coordenador' ? 'Coordenador' : user.tipo === 'gerente' ? 'Gerente' : 'Promotor'}</span>
+      `;
+      perfilElement.style.display = 'inline-flex';
+    }
+    
+    // Esconde botão "Gerar Novo Indicador" para promotores
+    const gerarIndicadorBtn = document.querySelector('a[href="gerar-indicador.html"]');
+    if (gerarIndicadorBtn && user.permissao !== 'admin') {
+      gerarIndicadorBtn.style.display = 'none';
+    } else if (gerarIndicadorBtn) {
+      gerarIndicadorBtn.style.display = 'inline-flex';
+    }
+  } catch (e) {
+    console.error('Erro ao atualizar perfil:', e);
+  }
+}
+
 // Login
-document.getElementById('loginForm').addEventListener('submit', (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('emailInput').value.trim().toLowerCase();
   const password = document.getElementById('passwordInput').value;
   const errorEl = document.getElementById('loginError');
+  const submitBtn = document.querySelector('#loginForm button[type="submit"]');
+  
+  // Desabilita botão durante verificação
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
 
-  if (email === DASHBOARD_EMAIL && password === DASHBOARD_PASSWORD) {
-    sessionStorage.setItem('dashboardAuth', 'true');
-    showDashboard();
-    loadDashboard();
-    errorEl.style.display = 'none';
-    document.getElementById('emailInput').value = '';
-    document.getElementById('passwordInput').value = '';
-  } else {
-    errorEl.textContent = 'E-mail ou senha incorretos!';
+  try {
+    const resultado = await verificarCredenciais(email, password);
+    
+    if (resultado.sucesso) {
+      sessionStorage.setItem('dashboardAuth', 'true');
+      sessionStorage.setItem('userData', JSON.stringify(resultado.usuario));
+      showDashboard();
+      loadDashboard();
+      atualizarPerfilUsuario();
+      errorEl.style.display = 'none';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('passwordInput').value = '';
+    } else {
+      errorEl.textContent = 'E-mail ou senha incorretos!';
+      errorEl.style.display = 'block';
+      document.getElementById('passwordInput').value = '';
+    }
+  } catch (error) {
+    console.error('Erro ao verificar credenciais:', error);
+    errorEl.textContent = 'Erro ao verificar credenciais. Tente novamente.';
     errorEl.style.display = 'block';
-    document.getElementById('passwordInput').value = '';
+  } finally {
+    // Reabilita botão
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Entrar';
   }
 });
 
 // Logout
 function logout() {
   sessionStorage.removeItem('dashboardAuth');
+  sessionStorage.removeItem('userData');
   showLogin();
   document.getElementById('emailInput').value = '';
   document.getElementById('passwordInput').value = '';
@@ -168,6 +225,77 @@ function clearDateFilter() {
   if (dateFilterInicio) dateFilterInicio.value = '';
   if (dateFilterFim) dateFilterFim.value = '';
   applyDateFilter();
+}
+
+// Exporta dados do dashboard
+function exportDashboardData(format) {
+  if (!allIndicacoesData || !allIndicacoesData.indicacoes) {
+    alert('Nenhum dado disponível para exportar!');
+    return;
+  }
+
+  const indicacoes = allIndicacoesData.indicacoes || [];
+  const dataInicio = document.getElementById('dateFilterInicio')?.value || '';
+  const dataFim = document.getElementById('dateFilterFim')?.value || '';
+
+  // Filtra por data se houver filtros aplicados
+  let dadosFiltrados = indicacoes;
+  if (dataInicio || dataFim) {
+    dadosFiltrados = indicacoes.filter(indicacao => {
+      if (!indicacao.dataHora) return false;
+      const dataIndicacao = new Date(indicacao.dataHora);
+      if (dataInicio) {
+        const inicio = new Date(dataInicio);
+        if (dataIndicacao < inicio) return false;
+      }
+      if (dataFim) {
+        const fim = new Date(dataFim);
+        fim.setHours(23, 59, 59, 999);
+        if (dataIndicacao > fim) return false;
+      }
+      return true;
+    });
+  }
+
+  // Define cabeçalhos
+  const headers = [
+    'Data e Hora',
+    'Nome',
+    'Telefone',
+    'Código de Indicação',
+    'Indicador',
+    'Origem',
+    'Status'
+  ];
+
+  // Mapeia dados para exportação
+  const rowMapper = (indicacao) => {
+    const dataHora = indicacao.dataHora 
+      ? new Date(indicacao.dataHora).toLocaleString('pt-BR')
+      : 'N/A';
+    const nome = indicacao.nome || indicacao.Nome || 'N/A';
+    const telefone = indicacao.telefone || indicacao.Telefone || 'N/A';
+    const codigo = indicacao.codigoIndicacao || indicacao['Código de Indicação'] || 'Sem código';
+    const indicador = getNomeIndicador(codigo);
+    const origem = indicacao.origem || indicacao.Origem || 'N/A';
+    const status = indicacao.status || indicacao.Status || 'N/A';
+
+    return [dataHora, nome, telefone, codigo, indicador, origem, status];
+  };
+
+  // Gera nome do arquivo com data
+  const agora = new Date();
+  const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
+  const filename = `dashboard_indicados_${dataStr}`;
+
+  // Exporta conforme formato
+  if (format === 'csv') {
+    exportToCSV(dadosFiltrados, filename, headers, rowMapper);
+  } else if (format === 'excel') {
+    exportToExcel(dadosFiltrados, filename, headers, rowMapper);
+  } else if (format === 'txt') {
+    exportToTXT(dadosFiltrados, filename, headers, rowMapper);
+  }
 }
 
 // Processa dados filtrados
@@ -462,5 +590,39 @@ function updatePizzaChart(ranking) {
 }
 
 // Inicializa quando a página carrega
-document.addEventListener('DOMContentLoaded', checkAuth);
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  
+  // Inicializa botões de exportação após um pequeno delay
+  setTimeout(initializeExportButtons, 500);
+});
+
+// Inicializa botões de exportação
+function initializeExportButtons() {
+  addExportButtonsStyles();
+  const container = document.getElementById('exportButtonsContainer');
+  if (container) {
+    container.innerHTML = createExportButtons('exportButtons');
+    
+    // Coleta dados do dashboard para exportação
+    const dashboardData = {
+      resumo: {
+        totalIndicadores: document.getElementById('totalIndicadores')?.textContent || '0',
+        totalIndicacoes: document.getElementById('totalIndicados')?.textContent || '0',
+        mediaIndicadores: document.getElementById('mediaIndicadores')?.textContent || '0'
+      }
+    };
+    
+    // Adiciona event listeners
+    document.getElementById('exportCSV')?.addEventListener('click', () => {
+      const dados = formatDashboardForExport(dashboardData);
+      exportToCSV(dados, `dashboard_${new Date().toISOString().split('T')[0]}.csv`);
+    });
+    
+    document.getElementById('exportExcel')?.addEventListener('click', () => {
+      const dados = formatDashboardForExport(dashboardData);
+      exportToExcel(dados, `dashboard_${new Date().toISOString().split('T')[0]}.xlsx`);
+    });
+  }
+}
 

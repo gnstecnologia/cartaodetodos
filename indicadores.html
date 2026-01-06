@@ -574,8 +574,63 @@
           padding: 1rem;
         }
 
+        .user-profile {
+          flex-wrap: wrap;
+          max-width: 100%;
+          padding: 0.6rem 1rem;
+          gap: 0.5rem;
+        }
+
+        .user-profile span:not(.user-type) {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .user-profile .user-type {
+          font-size: 0.75rem;
+          padding: 0.2rem 0.5rem;
+          width: 100%;
+          text-align: center;
+          margin-top: 0.25rem;
+        }
+
+        .filters-section {
+          padding: 1.5rem;
+        }
+
+        .filters-section > div:first-child {
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 1rem;
+          margin-bottom: 1rem !important;
+        }
+
+        .filters-title {
+          margin-bottom: 0 !important;
+          width: 100%;
+        }
+
+        .filters-section > div:first-child > div:last-child {
+          width: 100%;
+          justify-content: flex-start !important;
+        }
+
         .filters-row {
           grid-template-columns: 1fr !important;
+          gap: 1.25rem;
+        }
+
+        .filter-group {
+          width: 100%;
+        }
+
+        .filter-input,
+        .filter-select,
+        .filter-btn {
+          width: 100%;
         }
 
         .indicadores-grid {
@@ -586,6 +641,71 @@
           flex-direction: column;
           align-items: stretch;
         }
+
+        .nav-groups {
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .nav-separator {
+          display: none;
+        }
+
+        .nav-group {
+          width: 100%;
+          flex-wrap: wrap;
+        }
+      }
+
+      .user-profile {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--color-white);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+      }
+
+      .user-profile i {
+        font-size: 1.5rem;
+        color: var(--color-highlight);
+      }
+
+      .user-profile .user-type {
+        background: rgba(166, 255, 0, 0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--color-highlight);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* Organização de grupos de botões */
+      .nav-groups {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .nav-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .nav-separator {
+        width: 1px;
+        height: 30px;
+        background: rgba(255, 255, 255, 0.3);
+        margin: 0 0.5rem;
       }
     </style>
   </head>
@@ -603,29 +723,72 @@
           Indicadores
         </h1>
         <div class="indicadores-nav">
-          <a href="dashboard.html" class="nav-btn">
-            <i class="fas fa-chart-bar"></i> Dashboard
-          </a>
-          <a href="promotores.html" class="nav-btn">
-            <i class="fas fa-trophy"></i> Promotores
-          </a>
-          <a href="dashboard-promotores.html" class="nav-btn">
-            <i class="fas fa-chart-bar"></i> Dashboard Promotores
-          </a>
-          <a href="crm.html" class="nav-btn">
-            <i class="fas fa-tasks"></i> CRM
-          </a>
-          <button class="nav-btn" onclick="logout()">
-            <i class="fas fa-sign-out-alt"></i> Sair
-          </button>
+          <div class="nav-groups">
+            <!-- Grupo: Perfil -->
+            <div class="nav-group">
+              <div id="userProfile" class="user-profile" style="display: none;">
+                <i class="fas fa-user-circle"></i>
+                <span>Usuário</span>
+              </div>
+            </div>
+
+            <div class="nav-separator"></div>
+
+            <!-- Grupo: Navegação -->
+            <div class="nav-group">
+              <a href="dashboard.html" class="nav-btn">
+                <i class="fas fa-chart-bar"></i> Dashboard
+              </a>
+              <a href="promotores.html" class="nav-btn">
+                <i class="fas fa-trophy"></i> Promotores
+              </a>
+              <a href="dashboard-promotores.html" class="nav-btn">
+                <i class="fas fa-chart-bar"></i> Dashboard Promotores
+              </a>
+              <a href="crm.html" class="nav-btn">
+                <i class="fas fa-tasks"></i> CRM
+              </a>
+            </div>
+
+            <div class="nav-separator"></div>
+
+            <!-- Grupo: Ações -->
+            <div class="nav-group">
+              <a href="gerar-indicador.html" class="nav-btn" style="background: rgba(166, 255, 0, 0.2); border-color: rgba(166, 255, 0, 0.4); position: relative; z-index: 10;" onclick="event.stopPropagation(); window.location.href='gerar-indicador.html'; return false;" target="_self">
+                <i class="fas fa-user-plus"></i> Gerar Novo Indicador
+              </a>
+            </div>
+
+            <div class="nav-separator"></div>
+
+            <!-- Grupo: Sessão -->
+            <div class="nav-group">
+              <button class="nav-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Sair
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="filters-section">
-        <h2 class="filters-title">
-          <i class="fas fa-filter"></i>
-          Filtros
-        </h2>
+        <div style="display: flex; align-content: center; justify-content: space-between; margin-bottom: 1.5rem;">
+          <h2 class="filters-title">
+            <i class="fas fa-filter"></i>
+            Filtros
+          </h2>
+          <div style="display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+            <button onclick="exportIndicadoresData('csv')" class="export-btn export-btn-csv" title="Baixar CSV">
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+            <button onclick="exportIndicadoresData('excel')" class="export-btn export-btn-excel" title="Baixar Excel">
+              <i class="fas fa-file-excel"></i> Excel
+            </button>
+            <button onclick="exportIndicadoresData('txt')" class="export-btn export-btn-txt" title="Baixar TXT">
+              <i class="fas fa-file-alt"></i> TXT
+            </button>
+          </div>
+        </div>
         <div class="filters-row">
           <div class="filter-group">
             <label class="filter-label">
@@ -701,6 +864,9 @@
       </div>
     </div>
 
+    <script src="scripts/users-config.js"></script>
+    <script src="scripts/user-profile.js"></script>
+    <script src="scripts/export-utils.js"></script>
     <script src="scripts/indicadores.js"></script>
   </body>
 </html>

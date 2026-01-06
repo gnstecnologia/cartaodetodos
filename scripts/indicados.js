@@ -94,17 +94,25 @@ function formatDate(dateString) {
 
 // Verifica autenticação
 function checkAuth() {
-  const isAuthenticated = sessionStorage.getItem('dashboardAuth') === 'true';
-  if (!isAuthenticated) {
+  const userData = sessionStorage.getItem('userData');
+  if (!userData) {
     window.location.href = 'dashboard.html';
     return false;
   }
-  return true;
+  try {
+    JSON.parse(userData);
+    sessionStorage.setItem('dashboardAuth', 'true');
+    return true;
+  } catch {
+    window.location.href = 'dashboard.html';
+    return false;
+  }
 }
 
 // Logout
 function logout() {
   sessionStorage.removeItem('dashboardAuth');
+  sessionStorage.removeItem('userData');
   window.location.href = 'dashboard.html';
 }
 
@@ -584,5 +592,71 @@ document.addEventListener('click', (e) => {
 // Inicialização
 if (checkAuth()) {
   loadIndicados();
+  
+  // Inicializa botões de exportação após um pequeno delay
+  setTimeout(initializeExportButtons, 500);
+}
+
+// Inicializa botões de exportação
+function initializeExportButtons() {
+  addExportButtonsStyles();
+  const container = document.getElementById('exportButtonsContainer');
+  if (container) {
+    container.innerHTML = createExportButtons('exportButtons');
+    
+    // Adiciona event listeners
+    document.getElementById('exportCSV')?.addEventListener('click', () => {
+      const dados = formatIndicadosForExport(filteredIndicados);
+      exportToCSV(dados, `indicados_${new Date().toISOString().split('T')[0]}.csv`);
+    });
+    
+    document.getElementById('exportExcel')?.addEventListener('click', () => {
+      const dados = formatIndicadosForExport(filteredIndicados);
+      exportToExcel(dados, `indicados_${new Date().toISOString().split('T')[0]}.xlsx`);
+    });
+  }
+}
+
+// Exporta dados de indicados
+function exportIndicadosData(format) {
+  if (!filteredIndicados || filteredIndicados.length === 0) {
+    alert('Nenhum dado disponível para exportar!');
+    return;
+  }
+
+  const headers = [
+    'Data e Hora',
+    'Nome',
+    'Telefone',
+    'Código de Indicação',
+    'Origem',
+    'Status'
+  ];
+
+  const rowMapper = (indicado) => {
+    const dataHora = indicado.dataHora 
+      ? new Date(indicado.dataHora).toLocaleString('pt-BR')
+      : 'N/A';
+    return [
+      dataHora,
+      indicado.nome || indicado.Nome || 'N/A',
+      indicado.telefone || indicado.Telefone || 'N/A',
+      indicado.codigoIndicacao || indicado['Código de Indicação'] || 'N/A',
+      indicado.origem || indicado.Origem || 'N/A',
+      indicado.status || indicado.Status || 'N/A'
+    ];
+  };
+
+  const agora = new Date();
+  const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
+  const filename = `indicados_${dataStr}`;
+
+  if (format === 'csv') {
+    exportToCSV(filteredIndicados, filename, headers, rowMapper);
+  } else if (format === 'excel') {
+    exportToExcel(filteredIndicados, filename, headers, rowMapper);
+  } else if (format === 'txt') {
+    exportToTXT(filteredIndicados, filename, headers, rowMapper);
+  }
 }
 
