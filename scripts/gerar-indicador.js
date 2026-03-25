@@ -141,20 +141,21 @@ function mostrarResultado(indicador) {
 }
 
 // Copiar URL para área de transferência
-function copiarUrl() {
+function copiarUrl(button) {
   if (!urlGerada) return;
-  
+
+  const btn = button?.closest?.('.copy-btn') || document.querySelector('#resultCard .copy-btn');
+
   navigator.clipboard.writeText(urlGerada).then(() => {
-    const btn = event.target.closest('.copy-btn');
+    if (!btn) return;
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
     btn.style.background = '#27ae60';
-    
     setTimeout(() => {
       btn.innerHTML = textoOriginal;
       btn.style.background = '';
     }, 2000);
-  }).catch(err => {
+  }).catch((err) => {
     console.error('Erro ao copiar:', err);
     alert('Erro ao copiar URL. Tente selecionar e copiar manualmente.');
   });
