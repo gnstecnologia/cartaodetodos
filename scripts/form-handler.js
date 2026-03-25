@@ -36,9 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
     codigoInput.value = codigoIndicacao;
   }
 
+  const baseUrl = String(window.API_BASE_URL || window.location.origin || '').replace(/\/$/, '');
   const endpoint =
     (window.LANDING_CONFIG && window.LANDING_CONFIG.submitEndpoint) ||
-    'http://localhost:3000/api/leads';
+    `${baseUrl}/api/leads`;
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

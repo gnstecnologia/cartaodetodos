@@ -1,5 +1,5 @@
 // Configuração
-const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 const DATA_ENDPOINT = `${API_BASE_URL}/api/dashboard`;
 
 // Variável global para armazenar os indicadores vindos da API

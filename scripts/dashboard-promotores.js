@@ -1,7 +1,7 @@
 // Configuração
 const DASHBOARD_EMAIL = 'admin@cartaodetodos.com.br';
 const DASHBOARD_PASSWORD = 'admin123';
-const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 const PROMOTORES_ENDPOINT = `${API_BASE_URL}/api/promotores`;
 
 // Variáveis globais
