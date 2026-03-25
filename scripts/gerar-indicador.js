@@ -31,12 +31,14 @@ const resultUrl = document.getElementById('resultUrl');
 // Variável para armazenar a URL gerada
 let urlGerada = '';
 
-// Validação de telefone (formato brasileiro)
 function validarTelefone(telefone) {
-  // Remove caracteres não numéricos
-  const apenasNumeros = telefone.replace(/\D/g, '');
-  // Aceita telefone com 10 ou 11 dígitos (com ou sem DDD)
-  return apenasNumeros.length >= 10 && apenasNumeros.length <= 11;
+  return window.PhoneBr && window.PhoneBr.isValidBrazilPhone(telefone);
+}
+
+function mensagemTelefoneInvalido(val) {
+  const raw = val !== undefined ? val : telefoneInput.value;
+  const r = window.PhoneBr ? window.PhoneBr.parseBrazilPhoneToE164(raw) : { message: 'Telefone inválido.' };
+  return r.message || 'Informe DDD + número (celular com 9).';
 }
 
 // Validação de nome (mínimo 3 caracteres)
@@ -84,7 +86,7 @@ function validarFormulario() {
 
   // Validar telefone
   if (!validarTelefone(telefoneInput.value)) {
-    mostrarErro('telefone', 'Telefone inválido. Use o formato (00) 00000-0000');
+    mostrarErro('telefone', mensagemTelefoneInvalido(telefoneInput.value));
     valido = false;
   } else {
     limparErro('telefone');
@@ -175,6 +177,11 @@ form.addEventListener('submit', async (e) => {
   submitBtn.innerHTML = '<span class="loading"></span> Criando...';
 
   try {
+    const telParsed = window.PhoneBr.parseBrazilPhoneToE164(telefoneInput.value.trim());
+    if (!telParsed.ok) {
+      throw new Error(telParsed.message);
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/indicadores`, {
       method: 'POST',
       headers: {
@@ -183,7 +190,7 @@ form.addEventListener('submit', async (e) => {
       credentials: 'include',
       body: JSON.stringify({
         nome: nomeInput.value.trim(),
-        telefone: telefoneInput.value.trim(),
+        telefone: telParsed.e164,
         chavePix: chavePixInput.value.trim(),
       }),
     });
@@ -230,7 +237,7 @@ telefoneInput.addEventListener('blur', () => {
     if (validarTelefone(telefoneInput.value)) {
       limparErro('telefone');
     } else {
-      mostrarErro('telefone', 'Telefone inválido. Use o formato (00) 00000-0000');
+      mostrarErro('telefone', mensagemTelefoneInvalido(telefoneInput.value));
     }
   }
 });

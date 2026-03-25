@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const feedbackEl = form.querySelector('.form-feedback');
   const submitBtn = form.querySelector('button[type="submit"]');
   const codigoInput = form.querySelector('#codigoIndicacao');
+  const telefoneInput = form.querySelector('#telefone');
 
   // Função para extrair o código de indicação da URL
   function extrairCodigoDaURL() {
@@ -50,10 +51,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Valida apenas os campos obrigatórios (nome e telefone)
     const nome = form.nome.value.trim();
-    const telefone = form.telefone.value.trim();
+    const telefoneRaw = form.telefone.value.trim();
 
-    if (!nome || !telefone) {
+    if (!nome || !telefoneRaw) {
       updateFeedback('Preencha todos os campos obrigatórios.', true);
+      return;
+    }
+
+    const phone = window.PhoneBr.parseBrazilPhoneToE164(telefoneRaw);
+    if (!phone.ok) {
+      updateFeedback(phone.message, true);
       return;
     }
 
@@ -63,10 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
       codigoInput.value = codigoExtraido;
     }
 
-    // Prepara os dados do formulário (código pode estar vazio)
     const formData = {
       nome: nome,
-      telefone: telefone,
+      telefone: phone.e164,
       codigoIndicacao: codigoInput ? codigoInput.value.trim() : '',
     };
 
@@ -104,6 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleSubmitState(false);
     }
   });
+
+  if (telefoneInput && window.PhoneBr) {
+    telefoneInput.addEventListener('blur', () => {
+      const v = telefoneInput.value.trim();
+      if (!v) return;
+      const r = window.PhoneBr.parseBrazilPhoneToE164(v);
+      updateFeedback(r.ok ? '' : r.message, !r.ok);
+    });
+  }
 
   function toggleSubmitState(isLoading) {
     submitBtn.disabled = isLoading;

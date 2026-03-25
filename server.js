@@ -8,6 +8,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { supabase, supabaseUrl } = require('./services/supabase/client');
 const { sendLeadToGhl } = require('./services/ghl/client');
 const { writeAuditLog } = require('./services/logs/audit');
+const { parseBrazilPhoneToE164 } = require('./scripts/phone-br.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,7 +44,12 @@ app.use(
       if (
         rel === path.join('scripts', 'auth.js') ||
         rel === path.join('scripts', 'dashboard.js') ||
-        rel === 'dashboard.html'
+        rel === path.join('scripts', 'phone-br.js') ||
+        rel === path.join('scripts', 'form-handler.js') ||
+        rel === path.join('scripts', 'gerar-indicador.js') ||
+        rel === 'dashboard.html' ||
+        rel === 'index.html' ||
+        rel === 'gerar-indicador.html'
       ) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.setHeader('Pragma', 'no-cache');
@@ -293,6 +299,12 @@ app.post('/api/leads', async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Nome e telefone são obrigatórios' });
     }
 
+    const phoneParsed = parseBrazilPhoneToE164(telefone);
+    if (!phoneParsed.ok) {
+      return res.status(400).json({ ok: false, message: phoneParsed.message });
+    }
+    const telefoneE164 = phoneParsed.e164;
+
     let indicator = null;
     if (codigoIndicacao) {
       const indicatorResp = await supabase
@@ -310,7 +322,7 @@ app.post('/api/leads', async (req, res) => {
       .from('referrals')
       .insert({
         nome: String(nome).trim(),
-        telefone: String(telefone).trim(),
+        telefone: telefoneE164,
         indicator_id: indicator?.id || null,
         codigo_indicacao: indicator?.code || String(codigoIndicacao || '').trim() || null,
         status: 'Nova Indicação',
@@ -588,6 +600,11 @@ app.post('/api/indicadores', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Nome, Telefone e Chave Pix são obrigatórios' });
     }
 
+    const telIndicador = parseBrazilPhoneToE164(telefone);
+    if (!telIndicador.ok) {
+      return res.status(400).json({ ok: false, message: telIndicador.message });
+    }
+
     const code = await generateUniqueIndicatorCode(db);
     const url = `${DEFAULT_LANDING_BASE_URL}/?codigo=${encodeURIComponent(code)}`;
 
@@ -595,7 +612,7 @@ app.post('/api/indicadores', requireAuth, requireAdmin, async (req, res) => {
       .from('indicators')
       .insert({
         nome: String(nome).trim(),
-        telefone: String(telefone).trim(),
+        telefone: telIndicador.e164,
         chave_pix: String(chavePix).trim(),
         code,
         url,
