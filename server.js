@@ -581,7 +581,8 @@ app.get('/api/leads/:leadId/timeline', requireAuth, async (req, res) => {
 
 app.post('/api/indicadores', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const db = req.userClient;
+    // Service role: escrita após requireAdmin (evita RLS is_admin() divergente de auth.users ↔ users_profiles).
+    const db = supabase;
     const { nome, telefone, chavePix } = req.body;
     if (!nome || !telefone || !chavePix) {
       return res.status(400).json({ ok: false, message: 'Nome, Telefone e Chave Pix são obrigatórios' });
