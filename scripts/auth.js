@@ -1,11 +1,32 @@
 // Evita colisão de nomes globais com outros scripts que também definem `API_BASE_URL`.
 const AUTH_API_BASE_URL = window.API_BASE_URL || window.location.origin;
 
+function authMePathsDiffer(redirectTo) {
+  try {
+    const target = new URL(redirectTo, window.location.href);
+    return target.pathname !== window.location.pathname;
+  } catch {
+    return true;
+  }
+}
+
 async function fetchAuthMe() {
-  const response = await fetch(`${AUTH_API_BASE_URL}/api/auth/me`, {
-    method: 'GET',
-    credentials: 'include',
-  });
+  const me = async () =>
+    fetch(`${AUTH_API_BASE_URL}/api/auth/me`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+  let response = await me();
+  if (response.status === 401) {
+    const refreshed = await fetch(`${AUTH_API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (refreshed.ok) {
+      response = await me();
+    }
+  }
   if (!response.ok) return null;
   const data = await response.json();
   if (!data?.ok || !data.user) return null;
@@ -14,7 +35,11 @@ async function fetchAuthMe() {
 
 async function ensureSessionFromServer() {
   const user = await fetchAuthMe();
-  if (!user) return null;
+  if (!user) {
+    sessionStorage.removeItem('dashboardAuth');
+    sessionStorage.removeItem('userData');
+    return null;
+  }
   sessionStorage.setItem('dashboardAuth', 'true');
   sessionStorage.setItem('userData', JSON.stringify(user));
   return user;
@@ -61,12 +86,11 @@ async function logoutSession() {
 
 async function ensureAuthenticatedPage(options = {}) {
   const { adminOnly = false, redirectTo = 'dashboard.html' } = options;
-  let user = getSessionUser();
+  const user = await ensureSessionFromServer();
   if (!user) {
-    user = await ensureSessionFromServer();
-  }
-  if (!user) {
-    window.location.href = redirectTo;
+    if (authMePathsDiffer(redirectTo)) {
+      window.location.href = redirectTo;
+    }
     return null;
   }
   if (adminOnly && user.permissao !== 'admin') {

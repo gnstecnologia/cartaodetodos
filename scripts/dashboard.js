@@ -29,17 +29,28 @@ function getNomeIndicador(codigo) {
   return `Código ${codigoStr}`;
 }
 
+// Evita chamadas concorrentes (ex.: scripts duplicados / eventos repetidos).
+let checkAuthPromise = null;
+
 // Verifica se está autenticado
 async function checkAuth() {
-  const user = await window.AuthClient.ensureAuthenticatedPage({ redirectTo: 'dashboard.html' });
-  if (user) {
-    showDashboard();
-    loadDashboard();
-    atualizarPerfilUsuario();
-    return true;
-  }
-  showLogin();
-  return false;
+  if (checkAuthPromise) return checkAuthPromise;
+  checkAuthPromise = (async () => {
+    try {
+      const user = await window.AuthClient.ensureAuthenticatedPage({ redirectTo: 'dashboard.html' });
+      if (user) {
+        showDashboard();
+        loadDashboard();
+        atualizarPerfilUsuario();
+        return true;
+      }
+      showLogin();
+      return false;
+    } finally {
+      checkAuthPromise = null;
+    }
+  })();
+  return checkAuthPromise;
 }
 
 // Mostra tela de login

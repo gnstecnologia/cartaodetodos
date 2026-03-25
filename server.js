@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const crypto = require('crypto');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -16,6 +17,7 @@ const AUTH_COOKIE_NAME = 'ctd_access_token';
 const REFRESH_COOKIE_NAME = 'ctd_refresh_token';
 const COOKIE_MAX_AGE_SECONDS = Number(process.env.AUTH_COOKIE_MAX_AGE_SECONDS || 60 * 60 * 8);
 const COOKIE_SECURE = String(process.env.AUTH_COOKIE_SECURE || (process.env.NODE_ENV === 'production' ? 'true' : 'false')) === 'true';
+const COOKIE_DOMAIN = String(process.env.AUTH_COOKIE_DOMAIN || '').trim() || undefined;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
@@ -34,7 +36,21 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.static(__dirname));
+app.use(
+  express.static(__dirname, {
+    setHeaders(res, filePath) {
+      const rel = path.relative(__dirname, filePath);
+      if (
+        rel === path.join('scripts', 'auth.js') ||
+        rel === path.join('scripts', 'dashboard.js') ||
+        rel === 'dashboard.html'
+      ) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+      }
+    },
+  }),
+);
 
 function parseCookies(req) {
   const raw = req.headers.cookie || '';
@@ -55,6 +71,7 @@ function serializeCookie(name, value, options = {}) {
   if (options.httpOnly) parts.push('HttpOnly');
   if (options.secure) parts.push('Secure');
   if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  if (options.domain) parts.push(`Domain=${options.domain}`);
   parts.push(`Path=${options.path || '/'}`);
   return parts.join('; ');
 }
@@ -66,11 +83,11 @@ function setAuthCookies(res, session) {
     secure: COOKIE_SECURE,
     sameSite: 'Lax',
     maxAge: COOKIE_MAX_AGE_SECONDS,
+    domain: COOKIE_DOMAIN,
   };
-  res.setHeader('Set-Cookie', [
-    serializeCookie(AUTH_COOKIE_NAME, session.access_token, cookieOptions),
-    serializeCookie(REFRESH_COOKIE_NAME, session.refresh_token, cookieOptions),
-  ]);
+  // Duas cabeçalhos Set-Cookie: res.append evita perder um cookie com setHeader([...]).
+  res.append('Set-Cookie', serializeCookie(AUTH_COOKIE_NAME, session.access_token, cookieOptions));
+  res.append('Set-Cookie', serializeCookie(REFRESH_COOKIE_NAME, session.refresh_token, cookieOptions));
 }
 
 function clearAuthCookies(res) {
@@ -80,11 +97,10 @@ function clearAuthCookies(res) {
     secure: COOKIE_SECURE,
     sameSite: 'Lax',
     maxAge: 0,
+    domain: COOKIE_DOMAIN,
   };
-  res.setHeader('Set-Cookie', [
-    serializeCookie(AUTH_COOKIE_NAME, '', clearOptions),
-    serializeCookie(REFRESH_COOKIE_NAME, '', clearOptions),
-  ]);
+  res.append('Set-Cookie', serializeCookie(AUTH_COOKIE_NAME, '', clearOptions));
+  res.append('Set-Cookie', serializeCookie(REFRESH_COOKIE_NAME, '', clearOptions));
 }
 
 function createAnonClient(accessToken) {

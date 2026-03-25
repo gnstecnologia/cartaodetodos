@@ -35,7 +35,7 @@ Blocos principais:
 
 - **Supabase**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_PUBLISHABLE_KEY`
 - **GHL**: `GHL_API_TOKEN`, `GHL_LOCATION_ID`, `GHL_PIPELINE_ID`, `GHL_STAGE_ID_INITIAL`, campos customizados (`GHL_FIELD_ID_*`), `GHL_WEBHOOK_SECRET`
-- **Auth/Cookies**: `AUTH_COOKIE_MAX_AGE_SECONDS`, `AUTH_COOKIE_SECURE`
+- **Auth/Cookies**: `AUTH_COOKIE_MAX_AGE_SECONDS`, `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_DOMAIN` (opcional, útil se o site responde em apex e `www` com o mesmo login)
 - **App**: `LANDING_BASE_URL`, `PORT`
 
 O backend **não usa mais Google Sheets**; dados vêm só do Supabase.
