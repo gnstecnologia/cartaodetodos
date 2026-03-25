@@ -1,30 +1,12 @@
 // Verifica autenticação e permissão (apenas admin)
-function checkAuth() {
-  const userData = sessionStorage.getItem('userData');
-  if (!userData) {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
-  
-  try {
-    const user = JSON.parse(userData);
-    // Verifica se tem permissão para gerenciar usuários (apenas admin)
-    if (user.permissao !== 'admin') {
-      alert('Você não tem permissão para acessar esta página.');
-      window.location.href = 'dashboard.html';
-      return false;
-    }
-    sessionStorage.setItem('dashboardAuth', 'true');
-    return true;
-  } catch {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
-}
-
-// Verifica autenticação ao carregar a página
-if (!checkAuth()) {
-  // Redirecionamento já foi feito na função checkAuth
+async function checkAuth() {
+  const user = await window.AuthClient.ensureAuthenticatedPage({
+    adminOnly: true,
+    redirectTo: 'dashboard.html',
+  });
+  if (!user) return false;
+  sessionStorage.setItem('dashboardAuth', 'true');
+  return true;
 }
 
 // Configuração da API
@@ -54,7 +36,7 @@ async function loadUsers() {
   usuariosGridEl.style.display = 'none';
 
   try {
-    const response = await fetch(USUARIOS_ENDPOINT);
+    const response = await fetch(USUARIOS_ENDPOINT, { credentials: 'include' });
     
     if (!response.ok) {
       throw new Error('Erro ao carregar usuários');
@@ -285,6 +267,7 @@ async function saveUser(event) {
       headers: {
         'Content-Type': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify(userData)
     });
 
@@ -334,7 +317,8 @@ async function deleteUser(email) {
 
   try {
     const response = await fetch(`${USUARIOS_ENDPOINT}/${encodeURIComponent(email)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      credentials: 'include',
     });
 
     const data = await response.json();
@@ -386,7 +370,9 @@ function showSuccess(message) {
 }
 
 // Inicializa página
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  const ok = await checkAuth();
+  if (!ok) return;
   loadUsers();
 });
 

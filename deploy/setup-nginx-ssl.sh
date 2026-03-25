@@ -1,9 +1,12 @@
 #!/bin/bash
 
 # Script para configurar Nginx e SSL na VPS
-# Execute como root: bash setup-nginx-ssl.sh
+# Na raiz do projeto (ex.: /var/www/cartaodetodos): sudo bash deploy/setup-nginx-ssl.sh
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NGINX_TEMPLATE="$SCRIPT_DIR/nginx-cartaodetodos.conf"
 
 echo "🔧 Configurando Nginx e SSL para cartaodetodos.cloud..."
 
@@ -44,7 +47,7 @@ fi
 
 # Copiar configuração do Nginx
 echo "📝 Configurando Nginx..."
-cp nginx-cartaodetodos.conf /etc/nginx/sites-available/$DOMAIN
+cp "$NGINX_TEMPLATE" /etc/nginx/sites-available/$DOMAIN
 
 # Remover configuração HTTP temporariamente para obter certificado SSL
 sed -i '/listen 443 ssl http2;/d' /etc/nginx/sites-available/$DOMAIN
@@ -72,7 +75,7 @@ certbot --nginx -d $DOMAIN -d www.$DOMAIN --non-interactive --agree-tos --email 
 
 # Restaurar configuração completa do Nginx
 echo "📝 Aplicando configuração completa do Nginx..."
-cp nginx-cartaodetodos.conf /etc/nginx/sites-available/$DOMAIN
+cp "$NGINX_TEMPLATE" /etc/nginx/sites-available/$DOMAIN
 ln -sf /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 
 # Testar novamente

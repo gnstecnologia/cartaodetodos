@@ -1,131 +1,85 @@
-# Cartão de Todos - Sistema de Gestão
+# Cartão de Todos — Plataforma de Indicação
 
-Sistema completo de gestão para o programa de indicação Cartão de Todos, incluindo CRM, dashboards administrativos e gerenciamento de usuários.
+Plataforma de indicação com frontend em HTML/CSS/JS, backend em Node/Express e persistência em Supabase. O CRM interno foi descontinuado: o fluxo comercial agora integra com GHL (GoHighLevel).
 
-## 🚀 Funcionalidades
+## Requisitos
 
-- **Landing Page**: Captura de leads com integração ao Google Sheets
-- **CRM**: Gerenciamento visual de leads em formato Kanban
-- **Dashboards**: Visualização de métricas e indicadores
-- **Gerenciamento de Promotores**: Controle de promotores e seus leads
-- **Sistema de Usuários**: Autenticação e controle de permissões
-- **Exportação de Dados**: Exportação em CSV, Excel e TXT
+- Node.js 18+
+- Projeto Supabase configurado
+- Token da API GHL da subconta
 
-## 📋 Requisitos
+## Rodar localmente
 
-- Node.js 18+ 
-- npm ou yarn
-- Google Sheets API configurada
-- Servidor VPS com PM2 (para produção)
-
-## ⚙️ Instalação
-
-1. Clone o repositório:
 ```bash
 git clone https://github.com/gnstecnologia/cartaodetodos.git
 cd cartaodetodos
-```
-
-2. Instale as dependências:
-```bash
 npm install
+cp .env.example .env
 ```
 
-3. Configure as variáveis de ambiente criando um arquivo `.env`:
-```env
-SPREADSHEET_ID=seu_spreadsheet_id
-GOOGLE_SERVICE_ACCOUNT_EMAIL=seu_service_account@email.com
-GOOGLE_PRIVATE_KEY="sua_chave_privada"
-GOOGLE_SHEETS_LEADS_SHEET=Leads
-GOOGLE_SHEETS_PROMOTORES_SHEET=Promotores
-GOOGLE_SHEETS_USUARIOS_SHEET=Usuarios
-PORT=3000
-```
+Preencha o `.env` e rode:
 
-4. Inicie o servidor:
 ```bash
 npm start
-# ou para desenvolvimento
+# ou
 npm run dev
 ```
 
-O sistema estará disponível em `http://localhost:3000`
+Acesse `http://localhost:3000`.
 
-## 🔐 Usuários Padrão
+## Variáveis de ambiente
 
-- **Admin**: `admin@cartaodetodos.com.br` / `admin123`
-- **Coordenador**: `coordenador@cartaodetodos.com.br` / `coordenador123`
-- **Gerente**: `gerente@cartaodetodos.com.br` / `gerente123`
+Veja o arquivo [`.env.example`](.env.example).
 
-⚠️ **IMPORTANTE**: Altere as senhas padrão após o primeiro acesso!
+Blocos principais:
 
-## 📁 Estrutura do Projeto
+- **Supabase**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_PUBLISHABLE_KEY`
+- **GHL**: `GHL_API_TOKEN`, `GHL_LOCATION_ID`, `GHL_PIPELINE_ID`, `GHL_STAGE_ID_INITIAL`, campos customizados (`GHL_FIELD_ID_*`), `GHL_WEBHOOK_SECRET`
+- **Auth/Cookies**: `AUTH_COOKIE_MAX_AGE_SECONDS`, `AUTH_COOKIE_SECURE`
+- **App**: `LANDING_BASE_URL`, `PORT`
 
-```
-cartaodetodos/
-├── scripts/           # Scripts JavaScript do frontend
-├── .github/
-│   └── workflows/     # GitHub Actions para deploy
-├── server.js          # Servidor Node.js/Express
-├── package.json       # Dependências do projeto
-└── *.html            # Páginas da aplicação
-```
+O backend **não usa mais Google Sheets**; dados vêm só do Supabase.
 
-## 🚢 Deploy
+## Autenticação e autorização
 
-O deploy é automatizado via GitHub Actions. A cada push na branch `main`, o sistema é automaticamente deployado na VPS.
+- Login do painel usa **Supabase Auth** via backend (`/api/auth/login`, `/api/auth/me`, `/api/auth/logout`).
+- Sessão é mantida em cookie `HttpOnly` (não acessível por JavaScript do browser).
+- Autorização de dados é aplicada no banco com **RLS** (políticas em migration de auth/RLS).
+- Gestão de usuários é restrita a admin (`/api/usuarios`), sem exposição de senha.
 
-### Configuração Inicial na VPS (SSL/HTTPS)
+## Banco (Supabase)
 
-Para habilitar HTTPS na VPS, execute o script de configuração:
+1. Aplicar os SQLs em ordem:
+   - [supabase/migrations/20260325_initial_schema.sql](supabase/migrations/20260325_initial_schema.sql)
+   - [supabase/migrations/20260325_auth_rls_upgrade.sql](supabase/migrations/20260325_auth_rls_upgrade.sql)
+2. (Opcional) popular dados de demonstração (script em `tools/seed-supabase.js`):
 
 ```bash
-# Conecte na VPS via SSH
-ssh root@seu-ip
-
-# Navegue até o diretório do projeto
-cd /var/www/cartaodetodos
-
-# Execute o script de configuração
-bash setup-nginx-ssl.sh
+npm run seed
 ```
 
-O script irá:
-- Instalar e configurar Nginx
-- Obter certificado SSL gratuito via Let's Encrypt
-- Configurar proxy reverso para o servidor Node.js
-- Habilitar renovação automática do certificado
+Para apagar indicadores, indicações, logs GHL/webhook/auditoria e **manter só** `users_profiles` (script em `tools/clear-data-supabase.js`):
 
-⚠️ **Importante**: Certifique-se de que o DNS do domínio `cartaodetodos.cloud` aponta para o IP da VPS antes de executar o script.
+```bash
+npm run clear-data
+```
 
-### Variáveis necessárias no GitHub Secrets:
+## Webhook de conversão GHL
 
-- `SSH_PRIVATE_KEY`: Chave SSH privada para acesso à VPS
-- `SSH_USER`: Usuário SSH da VPS
-- `SERVER_IP`: IP do servidor
-- `TARGET_DIR`: Diretório de destino (padrão: `/var/www/cartaodetodos`)
+Endpoint:
 
-## 📝 Páginas do Sistema
+- `POST /webhooks/ghl/conversion`
 
-- `/` - Landing page
-- `/dashboard.html` - Dashboard principal
-- `/crm.html` - CRM (gerenciamento de leads)
-- `/promotores.html` - Lista de promotores
-- `/indicadores.html` - Indicadores e métricas
-- `/usuarios.html` - Gerenciamento de usuários (admin only)
+Validação por segredo:
 
-## 🛠️ Tecnologias
+- Header `x-webhook-secret` deve bater com `GHL_WEBHOOK_SECRET`.
 
-- **Backend**: Node.js, Express
-- **Frontend**: HTML5, CSS3, JavaScript (Vanilla)
-- **Storage**: Google Sheets API
-- **Process Manager**: PM2
-- **Deploy**: GitHub Actions
+## Documentação
 
-## 📄 Licença
+- [docs/DEPLOY.md](docs/DEPLOY.md)
+- [docs/CONFIGURAR_SSL.md](docs/CONFIGURAR_SSL.md)
+- [docs/REFERENCIAS-ARQUIVOS.md](docs/REFERENCIAS-ARQUIVOS.md)
 
-Este projeto é proprietário.
+## Observação de segurança
 
-## 👥 Suporte
-
-Para suporte, entre em contato com a equipe de desenvolvimento.
+As credenciais previamente expostas devem ser rotacionadas antes de produção (Supabase e GHL).

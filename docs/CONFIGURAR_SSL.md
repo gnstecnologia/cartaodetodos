@@ -24,8 +24,10 @@ cd /var/www/cartaodetodos
 
 ### 3. Execute o script de configuração
 
+Na raiz do repositório na VPS (ex.: `/var/www/cartaodetodos`), como root:
+
 ```bash
-bash setup-nginx-ssl.sh
+sudo bash deploy/setup-nginx-ssl.sh
 ```
 
 O script irá:

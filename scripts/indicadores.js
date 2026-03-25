@@ -37,27 +37,16 @@ function parseBrazilianDate(dateString) {
 }
 
 // Verifica autenticação
-function checkAuth() {
-  const userData = sessionStorage.getItem('userData');
-  if (!userData) {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
-  try {
-    JSON.parse(userData);
-    sessionStorage.setItem('dashboardAuth', 'true');
-    return true;
-  } catch {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
+async function checkAuth() {
+  const user = await window.AuthClient.ensureAuthenticatedPage({ redirectTo: 'dashboard.html' });
+  return Boolean(user);
 }
 
 // Logout
 function logout() {
-  sessionStorage.removeItem('dashboardAuth');
-  sessionStorage.removeItem('userData');
-  window.location.href = 'dashboard.html';
+  window.AuthClient.logoutSession().finally(() => {
+    window.location.href = 'dashboard.html';
+  });
 }
 
 // Carrega dados dos indicadores
@@ -444,12 +433,12 @@ function viewIndicadorIndicados(indicadorId) {
 }
 
 // Inicialização
-if (checkAuth()) {
-  loadIndicadores();
-  
-  // Inicializa botões de exportação após um pequeno delay
-  setTimeout(initializeExportButtons, 500);
-}
+document.addEventListener('DOMContentLoaded', async () => {
+  if (await checkAuth()) {
+    loadIndicadores();
+    setTimeout(initializeExportButtons, 500);
+  }
+});
 
 // Inicializa botões de exportação
 function initializeExportButtons() {

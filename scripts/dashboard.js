@@ -30,24 +30,16 @@ function getNomeIndicador(codigo) {
 }
 
 // Verifica se está autenticado
-function checkAuth() {
-  const userData = sessionStorage.getItem('userData');
-  if (userData) {
-    try {
-      const user = JSON.parse(userData);
-      sessionStorage.setItem('dashboardAuth', 'true');
-      showDashboard();
-      loadDashboard();
-      atualizarPerfilUsuario();
-      return true;
-    } catch {
-      showLogin();
-      return false;
-    }
-  } else {
-    showLogin();
-    return false;
+async function checkAuth() {
+  const user = await window.AuthClient.ensureAuthenticatedPage({ redirectTo: 'dashboard.html' });
+  if (user) {
+    showDashboard();
+    loadDashboard();
+    atualizarPerfilUsuario();
+    return true;
   }
+  showLogin();
+  return false;
 }
 
 // Mostra tela de login
@@ -104,11 +96,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
 
   try {
-    const resultado = await verificarCredenciais(email, password);
-    
-    if (resultado.sucesso) {
-      sessionStorage.setItem('dashboardAuth', 'true');
-      sessionStorage.setItem('userData', JSON.stringify(resultado.usuario));
+    const user = await window.AuthClient.loginWithPassword(email, password);
+
+    if (user) {
       showDashboard();
       loadDashboard();
       atualizarPerfilUsuario();
@@ -133,11 +123,11 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 // Logout
 function logout() {
-  sessionStorage.removeItem('dashboardAuth');
-  sessionStorage.removeItem('userData');
-  showLogin();
-  document.getElementById('emailInput').value = '';
-  document.getElementById('passwordInput').value = '';
+  window.AuthClient.logoutSession().finally(() => {
+    showLogin();
+    document.getElementById('emailInput').value = '';
+    document.getElementById('passwordInput').value = '';
+  });
 }
 
 // Carrega dados do dashboard

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script para limpar arquivos desnecessários na VPS
-# Execute na VPS: bash limpar-vps.sh
+# Execute na VPS: cd /var/www/cartaodetodos && bash deploy/limpar-vps.sh
 
 set -e
 
@@ -18,9 +18,15 @@ NECESSARIOS=(
     "styles.css"
     "*.html"
     "scripts/"
-    "nginx-cartaodetodos.conf"
-    "setup-nginx-ssl.sh"
-    "CONFIGURAR_SSL.md"
+    "services/"
+    "tools/"
+    "supabase/"
+    "deploy/nginx-cartaodetodos.conf"
+    "deploy/setup-nginx-ssl.sh"
+    "deploy/limpar-vps.sh"
+    "docs/CONFIGURAR_SSL.md"
+    "docs/DEPLOY.md"
+    "docs/REFERENCIAS-ARQUIVOS.md"
     "README.md"
     "LOGO.webp"
     "faviconV2.png"
@@ -29,6 +35,8 @@ NECESSARIOS=(
     ".env"
     ".git/"
     "node_modules/"
+    "deploy/"
+    "docs/"
 )
 
 # Lista de arquivos/diretórios para REMOVER (se existirem)
@@ -55,6 +63,10 @@ ARQUIVOS_REMOVER=(
     "RELATORIO_EXPORTACAO.md"
     "criar-usuario-admin.js"
     "corrigir-usuario-admin.js"
+    "CONFIGURAR_SSL.md"
+    "nginx-cartaodetodos.conf"
+    "setup-nginx-ssl.sh"
+    "limpar-vps.sh"
     "*.tmp"
     "*.temp"
     "*.log"

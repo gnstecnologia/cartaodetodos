@@ -22,14 +22,21 @@ jobs:
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} bash -s "$TARGET_DIR" << 'EOF'
             TARGET_DIR="$1"
             set -e
+
+            # Se a pasta estiver vazia (VPS "zerada"), clona o repositório primeiro.
+            if [ ! -d "$TARGET_DIR/.git" ]; then
+              rm -rf "$TARGET_DIR"/* 2>/dev/null || true
+              git clone "https://github.com/${{ github.repository }}.git" "$TARGET_DIR"
+            fi
+
             cd "$TARGET_DIR"
             git fetch --all
             git reset --hard origin/main
             npm install --production
             
             # Limpar arquivos desnecessários
-            if [ -f "limpar-vps.sh" ]; then
-              bash limpar-vps.sh || true
+            if [ -f "deploy/limpar-vps.sh" ]; then
+              bash deploy/limpar-vps.sh || true
             else
               # Limpeza manual se o script não existir
               rm -f deploy-automatico.sh deploy-vps.sh stop-server.ps1 test-connection.js 2>/dev/null || true
@@ -40,8 +47,8 @@ jobs:
             fi
             
             # Reiniciar Nginx se a configuração mudou
-            if [ -f "nginx-cartaodetodos.conf" ]; then
-              sudo cp nginx-cartaodetodos.conf /etc/nginx/sites-available/cartaodetodos.cloud 2>/dev/null || true
+            if [ -f "deploy/nginx-cartaodetodos.conf" ]; then
+              sudo cp deploy/nginx-cartaodetodos.conf /etc/nginx/sites-available/cartaodetodos.cloud 2>/dev/null || true
               sudo ln -sf /etc/nginx/sites-available/cartaodetodos.cloud /etc/nginx/sites-enabled/cartaodetodos.cloud 2>/dev/null || true
               sudo nginx -t && sudo systemctl reload nginx 2>/dev/null || true
             fi

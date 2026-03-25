@@ -38,20 +38,9 @@ function parseBrazilianDate(dateString) {
 }
 
 // Verifica autenticação
-function checkAuth() {
-  const userData = sessionStorage.getItem('userData');
-  if (!userData) {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
-  try {
-    JSON.parse(userData);
-    sessionStorage.setItem('dashboardAuth', 'true');
-    return true;
-  } catch {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
+async function checkAuth() {
+  const user = await window.AuthClient.ensureAuthenticatedPage({ redirectTo: 'dashboard.html' });
+  return Boolean(user);
 }
 
 // Formata valor em reais
@@ -120,7 +109,7 @@ async function loadPromotorData() {
       console.log('Buscando promotor:', promotorNome);
 
       // Busca dados da API
-      const response = await fetch(`${API_BASE_URL}/api/promotores`);
+      const response = await fetch(`${API_BASE_URL}/api/promotores`, { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Erro ao buscar dados da API');
       }
@@ -605,7 +594,7 @@ async function loadTimeline(leadId) {
     // Se não tem logStatus no lead, tenta buscar pela API usando ID numérico
     if (!isNaN(leadId)) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/timeline`);
+        const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/timeline`, { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           if (data.timeline && data.timeline.length > 0) {
@@ -711,8 +700,8 @@ document.addEventListener('click', (e) => {
 });
 
 // Inicialização
-document.addEventListener('DOMContentLoaded', () => {
-if (checkAuth()) {
+document.addEventListener('DOMContentLoaded', async () => {
+if (await checkAuth()) {
   loadPromotorData();
 }
 });

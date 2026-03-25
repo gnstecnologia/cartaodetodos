@@ -1,30 +1,10 @@
-// Verifica autenticação e permissão
-function checkAuth() {
-  const userData = sessionStorage.getItem('userData');
-  if (!userData) {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
-  
-  try {
-    const user = JSON.parse(userData);
-    // Verifica se tem permissão para gerar indicador (apenas admin)
-    if (user.permissao !== 'admin') {
-      alert('Você não tem permissão para acessar esta página.');
-      window.location.href = 'dashboard.html';
-      return false;
-    }
-    sessionStorage.setItem('dashboardAuth', 'true');
-    return true;
-  } catch {
-    window.location.href = 'dashboard.html';
-    return false;
-  }
-}
-
-// Verifica autenticação ao carregar a página
-if (!checkAuth()) {
-  // Redirecionamento já foi feito na função checkAuth
+async function checkAuth() {
+  const user = await window.AuthClient.ensureAuthenticatedPage({
+    adminOnly: true,
+    redirectTo: 'dashboard.html',
+  });
+  if (!user) return false;
+  return true;
 }
 
 // Configuração da API
@@ -199,6 +179,7 @@ form.addEventListener('submit', async (e) => {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({
         nome: nomeInput.value.trim(),
         telefone: telefoneInput.value.trim(),
@@ -274,5 +255,9 @@ telefoneInput.addEventListener('input', (e) => {
   }
   
   e.target.value = value;
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkAuth();
 });
 

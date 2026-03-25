@@ -1,1474 +1,841 @@
 require('dotenv').config();
+
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
-const { google } = require('googleapis');
+const { createClient } = require('@supabase/supabase-js');
+const { supabase, supabaseUrl } = require('./services/supabase/client');
+const { sendLeadToGhl } = require('./services/ghl/client');
+const { writeAuditLog } = require('./services/logs/audit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_LANDING_BASE_URL = process.env.LANDING_BASE_URL || 'https://cartaodetodos.companygenesis.com.br';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const AUTH_COOKIE_NAME = 'ctd_access_token';
+const REFRESH_COOKIE_NAME = 'ctd_refresh_token';
+const COOKIE_MAX_AGE_SECONDS = Number(process.env.AUTH_COOKIE_MAX_AGE_SECONDS || 60 * 60 * 8);
+const COOKIE_SECURE = String(process.env.AUTH_COOKIE_SECURE || (process.env.NODE_ENV === 'production' ? 'true' : 'false')) === 'true';
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos (HTML, CSS, JS, imagens)
+const STATIC_BLOCK_PREFIXES = ['/tools', '/services', '/supabase'];
+app.use((req, res, next) => {
+  const pathOnly = (req.path || '').split('?')[0];
+  if (pathOnly === '/.env' || pathOnly.startsWith('/.env/')) {
+    return res.status(404).end();
+  }
+  for (const prefix of STATIC_BLOCK_PREFIXES) {
+    if (pathOnly === prefix || pathOnly.startsWith(`${prefix}/`)) {
+      return res.status(404).end();
+    }
+  }
+  next();
+});
 app.use(express.static(__dirname));
 
-// Configuração do Google Sheets
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const LEADS_SHEET = process.env.GOOGLE_SHEETS_LEADS_SHEET || 'Leads';
-// Nome da aba no Google Sheets onde ficam os Indicadores (pode ser "Promotor", "Indicador", etc.)
-const PROMOTOR_SHEET = process.env.GOOGLE_SHEETS_PROMOTOR_SHEET || 'Promotor';
-const USUARIOS_SHEET = process.env.GOOGLE_SHEETS_USUARIOS_SHEET || 'Usuarios';
+function parseCookies(req) {
+  const raw = req.headers.cookie || '';
+  if (!raw) return {};
+  return raw.split(';').reduce((acc, item) => {
+    const index = item.indexOf('=');
+    if (index <= 0) return acc;
+    const key = item.slice(0, index).trim();
+    const value = item.slice(index + 1).trim();
+    acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+}
 
-// Autenticação Google Sheets
-let sheets;
-let auth;
+function serializeCookie(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(value)}`];
+  if (options.maxAge !== undefined) parts.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`);
+  if (options.httpOnly) parts.push('HttpOnly');
+  if (options.secure) parts.push('Secure');
+  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  parts.push(`Path=${options.path || '/'}`);
+  return parts.join('; ');
+}
 
-async function initGoogleSheets() {
-  try {
-    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+function setAuthCookies(res, session) {
+  const cookieOptions = {
+    path: '/',
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: 'Lax',
+    maxAge: COOKIE_MAX_AGE_SECONDS,
+  };
+  res.setHeader('Set-Cookie', [
+    serializeCookie(AUTH_COOKIE_NAME, session.access_token, cookieOptions),
+    serializeCookie(REFRESH_COOKIE_NAME, session.refresh_token, cookieOptions),
+  ]);
+}
 
-    if (!serviceAccountEmail || !privateKey) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_PRIVATE_KEY devem estar configurados no .env');
-    }
+function clearAuthCookies(res) {
+  const clearOptions = {
+    path: '/',
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: 'Lax',
+    maxAge: 0,
+  };
+  res.setHeader('Set-Cookie', [
+    serializeCookie(AUTH_COOKIE_NAME, '', clearOptions),
+    serializeCookie(REFRESH_COOKIE_NAME, '', clearOptions),
+  ]);
+}
 
-    auth = new google.auth.JWT(
-      serviceAccountEmail,
-      null,
-      privateKey,
-      ['https://www.googleapis.com/auth/spreadsheets']
-    );
-
-    sheets = google.sheets({ version: 'v4', auth });
-    console.log('✅ Google Sheets API conectada com sucesso');
-  } catch (error) {
-    console.error('❌ Erro ao conectar Google Sheets:', error.message);
-    process.exit(1);
+function createAnonClient(accessToken) {
+  if (!SUPABASE_ANON_KEY) {
+    throw new Error('Defina SUPABASE_PUBLISHABLE_KEY (ou SUPABASE_ANON_KEY) no ambiente');
   }
-}
+  const globalHeaders = {};
+  if (accessToken) globalHeaders.Authorization = `Bearer ${accessToken}`;
 
-// Função auxiliar para obter data/hora em formato brasileiro (DD/MM/YYYY HH:mm:ss) de São Paulo
-function getSaoPauloBrazilianFormat() {
-  const now = new Date();
-  // São Paulo está UTC-3
-  const saoPauloOffset = -3 * 60; // -3 horas em minutos
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const saoPauloTime = new Date(utc + (saoPauloOffset * 60000));
-  
-  // Como saoPauloTime é criado com offset -3, precisamos pegar os componentes UTC
-  // mas tratá-los como horário local de São Paulo
-  // Para isso, pegamos os componentes UTC diretamente
-  const dia = String(saoPauloTime.getUTCDate()).padStart(2, '0');
-  const mes = String(saoPauloTime.getUTCMonth() + 1).padStart(2, '0');
-  const ano = saoPauloTime.getUTCFullYear();
-  const hora = String(saoPauloTime.getUTCHours()).padStart(2, '0');
-  const minuto = String(saoPauloTime.getUTCMinutes()).padStart(2, '0');
-  const segundo = String(saoPauloTime.getUTCSeconds()).padStart(2, '0');
-  
-  return `${dia}/${mes}/${ano} ${hora}:${minuto}:${segundo}`;
-}
-
-// Função auxiliar para obter data/hora em formato ISO de São Paulo (para colunas ISO)
-function getSaoPauloISOString() {
-  const now = new Date();
-  // São Paulo está UTC-3
-  const saoPauloOffset = -3 * 60; // -3 horas em minutos
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const saoPauloTime = new Date(utc + (saoPauloOffset * 60000));
-  return saoPauloTime.toISOString();
-}
-
-// Função para converter formato brasileiro (DD/MM/YYYY HH:mm:ss) para Date object
-// Considera UTC-3 (São Paulo)
-// O formato "DD/MM/YYYY HH:mm:ss" representa hora local de São Paulo
-// Para converter para Date object (que trabalha em UTC), precisamos somar 3 horas
-function parseBrazilianDate(dateString) {
-  if (!dateString || typeof dateString !== 'string') return null;
-  
-  // Remove espaços extras
-  const trimmed = dateString.trim();
-  
-  // Tenta formato DD/MM/YYYY HH:mm:ss
-  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
-  if (match) {
-    const [, dia, mes, ano, hora, minuto, segundo] = match;
-    // A data no formato brasileiro está em horário de São Paulo (UTC-3)
-    // Para converter para Date (UTC), precisamos criar como UTC+3 (somar 3 horas)
-    // new Date() espera mês 0-11, então subtrai 1 do mês
-    const date = new Date(Date.UTC(
-      parseInt(ano, 10),
-      parseInt(mes, 10) - 1,
-      parseInt(dia, 10),
-      parseInt(hora, 10) + 3, // Soma 3 horas para compensar UTC-3
-      parseInt(minuto, 10),
-      parseInt(segundo, 10)
-    ));
-    
-    return date;
-  }
-  
-  // Tenta formato ISO como fallback
-  try {
-    return new Date(dateString);
-  } catch {
-    return null;
-  }
-}
-
-// Função para ler dados da planilha
-async function readSheet(sheetName, range = null) {
-  try {
-    const fullRange = range ? `${sheetName}!${range}` : sheetName;
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: fullRange,
-    });
-    return response.data.values || [];
-  } catch (error) {
-    console.error(`Erro ao ler planilha ${sheetName}:`, error.message);
-    throw error;
-  }
-}
-
-// Função para escrever dados na planilha
-async function writeSheet(sheetName, range, values) {
-  try {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!${range}`,
-      valueInputOption: 'USER_ENTERED',
-      resource: { values },
-    });
-  } catch (error) {
-    console.error(`Erro ao escrever na planilha ${sheetName}:`, error.message);
-    throw error;
-  }
-}
-
-// Função para adicionar linha na planilha
-async function appendRow(sheetName, values) {
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      resource: { values: [values] },
-    });
-  } catch (error) {
-    console.error(`Erro ao adicionar linha na planilha ${sheetName}:`, error.message);
-    throw error;
-  }
-}
-
-// Função para atualizar célula específica
-async function updateCell(sheetName, row, col, value) {
-  try {
-    const colLetter = String.fromCharCode(64 + col); // A=1, B=2, etc.
-    await writeSheet(sheetName, `${colLetter}${row}`, [[value]]);
-  } catch (error) {
-    console.error(`Erro ao atualizar célula:`, error.message);
-    throw error;
-  }
-}
-
-// Função para encontrar índice da coluna pelo nome
-function findColumnIndex(headers, columnName) {
-  return headers.findIndex(h => 
-    h && h.toString().toLowerCase().trim() === columnName.toLowerCase().trim()
-  );
-}
-
-// Função para garantir que as colunas necessárias existam na aba Leads
-async function ensureColumnsExist() {
-  try {
-    const data = await readSheet(LEADS_SHEET, 'A1:Z1');
-    const headers = data[0] || [];
-    
-    // Colunas base
-    const requiredColumns = [
-      'Data e Hora',           // A - Data de criação do lead
-      'Nome',                  // B
-      'Telefone',              // C
-      'Código de Indicação',   // D
-      'Origem',                // E
-      'Site',                  // F
-      'Status',                // G - Status atual
-      'Data de Criação',       // H - Data de criação (ISO)
-      // Colunas de log por status (com data/hora ISO quando passou por cada status)
-      'Nova Indicação',        // I - Data/hora quando entrou neste status
-      'Em Contato',            // J - Data/hora quando entrou neste status
-      'Em Negociação',         // K - Data/hora quando entrou neste status
-      'Fechado',               // L - Data/hora quando entrou neste status
-      'Perdido',               // M - Data/hora quando entrou neste status
-      // Colunas antigas (mantidas para compatibilidade)
-      'Log de Status',         // N - JSON (mantido para compatibilidade)
-      'Última Mudança de Status', // O
-      'Data Última Mudança'    // P
-    ];
-
-    const missingColumns = [];
-    const existingHeaders = headers.map(h => h && h.toString().trim());
-
-    requiredColumns.forEach(col => {
-      if (!existingHeaders.includes(col)) {
-        missingColumns.push(col);
-      }
-    });
-
-    if (missingColumns.length > 0) {
-      // Adiciona colunas faltantes
-      const lastCol = headers.length;
-      const newHeaders = [...headers];
-      missingColumns.forEach((col, idx) => {
-        newHeaders[lastCol + idx] = col;
-      });
-
-      await writeSheet(LEADS_SHEET, 'A1', [newHeaders]);
-      console.log(`✅ Colunas adicionadas na aba Leads: ${missingColumns.join(', ')}`);
-    }
-  } catch (error) {
-    console.error('Erro ao verificar colunas:', error.message);
-  }
-}
-
-// Função para garantir que as colunas necessárias existam na aba Promotor (onde ficam os Indicadores)
-async function ensurePromotorColumnsExist() {
-  try {
-    const data = await readSheet(PROMOTOR_SHEET, 'A1:Z1');
-    const headers = data[0] || [];
-    
-    const requiredColumns = [
-      'ID',
-      'Nome',
-      'Telefone',
-      'Chave Pix',
-      'URL',
-      'Data de Criação',      // Data/hora ISO quando o indicador foi criado
-      'Total de Indicações'   // Contador de quantos leads indicou
-    ];
-
-    const missingColumns = [];
-    const existingHeaders = headers.map(h => h && h.toString().trim());
-
-    requiredColumns.forEach(col => {
-      if (!existingHeaders.includes(col)) {
-        missingColumns.push(col);
-      }
-    });
-
-    if (missingColumns.length > 0) {
-      // Adiciona colunas faltantes
-      const lastCol = headers.length;
-      const newHeaders = [...headers];
-      missingColumns.forEach((col, idx) => {
-        newHeaders[lastCol + idx] = col;
-      });
-
-      await writeSheet(PROMOTOR_SHEET, 'A1', [newHeaders]);
-      console.log(`✅ Colunas adicionadas na aba Promotor: ${missingColumns.join(', ')}`);
-    }
-  } catch (error) {
-    console.error('Erro ao verificar colunas do Promotor:', error.message);
-  }
-}
-
-// Função auxiliar para verificar se uma aba existe
-async function sheetExists(sheetName) {
-  try {
-    const response = await sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID
-    });
-    const sheetsList = response.data.sheets || [];
-    return sheetsList.some(sheet => sheet.properties.title === sheetName);
-  } catch (error) {
-    return false;
-  }
-}
-
-// Função auxiliar para criar uma aba
-async function createSheet(sheetName) {
-  try {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      resource: {
-        requests: [{
-          addSheet: {
-            properties: {
-              title: sheetName
-            }
-          }
-        }]
-      }
-    });
-    console.log(`✅ Aba ${sheetName} criada com sucesso`);
-    return true;
-  } catch (error) {
-    console.error(`❌ Erro ao criar aba ${sheetName}:`, error.message);
-    return false;
-  }
-}
-
-// Função para garantir que as colunas necessárias existam na aba Usuarios
-async function ensureUsuariosColumnsExist() {
-  try {
-    // Verifica se a aba existe, se não, cria
-    const exists = await sheetExists(USUARIOS_SHEET);
-    if (!exists) {
-      const created = await createSheet(USUARIOS_SHEET);
-      if (!created) {
-        throw new Error('Não foi possível criar a aba');
-      }
-      // Aguarda um pouco para a aba ser criada
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    // Tenta ler os dados da aba
-    let data;
-    try {
-      data = await readSheet(USUARIOS_SHEET, 'A1:Z1');
-    } catch (error) {
-      // Se ainda der erro, tenta novamente após um delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      data = await readSheet(USUARIOS_SHEET, 'A1:Z1');
-    }
-    
-    const headers = data[0] || [];
-    const requiredColumns = [
-      'Email',
-      'Nome',
-      'Senha',
-      'Tipo',
-      'Permissao'
-    ];
-
-    // Se não há headers, cria os headers iniciais
-    if (headers.length === 0) {
-      await writeSheet(USUARIOS_SHEET, 'A1', [requiredColumns]);
-      console.log(`✅ Headers criados na aba ${USUARIOS_SHEET}`);
-      return;
-    }
-
-    const missingColumns = [];
-    const existingHeaders = headers.map(h => h && h.toString().trim());
-
-    requiredColumns.forEach(col => {
-      if (!existingHeaders.includes(col)) {
-        missingColumns.push(col);
-      }
-    });
-
-    if (missingColumns.length > 0) {
-      // Adiciona colunas faltantes
-      const lastCol = headers.length;
-      const newHeaders = [...headers];
-      missingColumns.forEach((col, idx) => {
-        newHeaders[lastCol + idx] = col;
-      });
-
-      await writeSheet(USUARIOS_SHEET, 'A1', [newHeaders]);
-      console.log(`✅ Colunas adicionadas na aba ${USUARIOS_SHEET}: ${missingColumns.join(', ')}`);
-    }
-  } catch (error) {
-    console.error(`Erro ao verificar colunas da aba ${USUARIOS_SHEET}:`, error.message);
-    throw error;
-  }
-}
-
-// Health check endpoint (para Docker e monitoramento)
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+  return createClient(supabaseUrl, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: globalHeaders },
   });
+}
+
+async function fetchSessionUser(accessToken) {
+  if (!accessToken) return null;
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+async function hydrateRequestUser(req, accessToken) {
+  const user = await fetchSessionUser(accessToken);
+  if (!user) return null;
+
+  const userClient = createAnonClient(accessToken);
+  const { data: profile } = await userClient
+    .from('users_profiles')
+    .select('id,email,nome,tipo,permissao')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  return {
+    authUser: user,
+    profile: profile || null,
+    accessToken,
+    userClient,
+  };
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const cookies = parseCookies(req);
+    const accessToken = bearerToken || cookies[AUTH_COOKIE_NAME] || '';
+    const sessionData = await hydrateRequestUser(req, accessToken);
+    if (!sessionData) return res.status(401).json({ ok: false, message: 'Não autenticado' });
+
+    req.authUser = sessionData.authUser;
+    req.user = sessionData.profile || {
+      id: sessionData.authUser.id,
+      email: sessionData.authUser.email || '',
+      nome: sessionData.authUser.user_metadata?.nome || '',
+      tipo: 'promotor',
+      permissao: 'usuario',
+    };
+    req.userClient = sessionData.userClient;
+    req.accessToken = sessionData.accessToken;
+    next();
+  } catch (error) {
+    res.status(401).json({ ok: false, message: 'Sessão inválida' });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.permissao !== 'admin') {
+    return res.status(403).json({ ok: false, message: 'Acesso restrito a administradores' });
+  }
+  next();
+}
+
+function getSaoPauloISODate() {
+  return new Date().toISOString();
+}
+
+function formatBrazilianDateTime(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour12: false,
+  });
+}
+
+function normalizeStatus(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return 'Nova Indicação';
+  if (raw === 'nova indicação' || raw === 'nova indicacao') return 'Nova Indicação';
+  if (raw === 'em contato') return 'Em Contato';
+  if (raw === 'em negociação' || raw === 'em negociacao') return 'Em Negociação';
+  if (raw === 'fechado' || raw === 'ganho') return 'Fechado';
+  if (raw === 'perdido') return 'Perdido';
+  return value;
+}
+
+function randomCode(size = 8) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(size);
+  let code = '';
+  for (let i = 0; i < size; i += 1) {
+    code += alphabet[bytes[i] % alphabet.length];
+  }
+  return code;
+}
+
+async function generateUniqueIndicatorCode(dbClient = supabase) {
+  for (let i = 0; i < 10; i += 1) {
+    const code = randomCode(8);
+    const { data } = await dbClient.from('indicators').select('id').eq('code', code).maybeSingle();
+    if (!data) return code;
+  }
+  throw new Error('Não foi possível gerar código único para indicador');
+}
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ ok: true, status: 'online', timestamp: new Date().toISOString() });
 });
 
-// ROTA: Receber lead do formulário
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!email || !password) {
+      return res.status(400).json({ ok: false, message: 'E-mail e senha são obrigatórios' });
+    }
+
+    const anonClient = createAnonClient();
+    const { data, error } = await anonClient.auth.signInWithPassword({ email, password });
+    if (error || !data?.session || !data?.user) {
+      return res.status(401).json({ ok: false, message: 'Credenciais inválidas' });
+    }
+
+    const userClient = createAnonClient(data.session.access_token);
+    const { data: profile } = await userClient
+      .from('users_profiles')
+      .select('id,email,nome,tipo,permissao')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    setAuthCookies(res, data.session);
+    return res.json({
+      ok: true,
+      user: profile || {
+        id: data.user.id,
+        email: data.user.email || email,
+        nome: data.user.user_metadata?.nome || '',
+        tipo: 'promotor',
+        permissao: 'usuario',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Erro ao autenticar: ${error.message}` });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  clearAuthCookies(res);
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const cookies = parseCookies(req);
+    const refreshToken = cookies[REFRESH_COOKIE_NAME];
+    if (!refreshToken) return res.status(401).json({ ok: false, message: 'Sem refresh token' });
+
+    const anonClient = createAnonClient();
+    const { data, error } = await anonClient.auth.refreshSession({ refresh_token: refreshToken });
+    if (error || !data?.session) return res.status(401).json({ ok: false, message: 'Sessão expirada' });
+
+    setAuthCookies(res, data.session);
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Erro ao renovar sessão: ${error.message}` });
+  }
+});
+
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  res.json({ ok: true, user: req.user });
+});
+
 app.post('/api/leads', async (req, res) => {
   try {
     const { nome, telefone, codigoIndicacao } = req.body;
 
     if (!nome || !telefone) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Nome e telefone são obrigatórios'
+      return res.status(400).json({ ok: false, message: 'Nome e telefone são obrigatórios' });
+    }
+
+    let indicator = null;
+    if (codigoIndicacao) {
+      const indicatorResp = await supabase
+        .from('indicators')
+        .select('id,nome,code')
+        .eq('code', String(codigoIndicacao).trim())
+        .maybeSingle();
+      indicator = indicatorResp.data || null;
+    }
+
+    const createdAt = getSaoPauloISODate();
+    const initialLog = [{ status: 'Nova Indicação', data: createdAt, origem: 'sistema' }];
+
+    const { data: referral, error } = await supabase
+      .from('referrals')
+      .insert({
+        nome: String(nome).trim(),
+        telefone: String(telefone).trim(),
+        indicator_id: indicator?.id || null,
+        codigo_indicacao: indicator?.code || String(codigoIndicacao || '').trim() || null,
+        status: 'Nova Indicação',
+        origem: 'landing-cartao-de-todos',
+        data_hora: formatBrazilianDateTime(createdAt),
+        data_criacao_iso: createdAt,
+        log_status: initialLog,
+        nova_indicacao_em: createdAt,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    try {
+      const ghlResult = await sendLeadToGhl({ referral, indicatorName: indicator?.nome || null });
+      const contactId = ghlResult?.steps?.contact?.contactId || null;
+
+      await supabase.from('ghl_events').insert({
+        referral_id: referral.id,
+        event_type: 'lead_created',
+        status: 'success',
+        payload: ghlResult,
       });
-    }
 
-    // Garante que as colunas existam
-    await ensureColumnsExist();
-
-    const dataHoraLegivel = getSaoPauloBrazilianFormat(); // Formato brasileiro para "Data e Hora"
-    const dataHoraISO = getSaoPauloISOString(); // Formato ISO para outras colunas
-    const origem = 'landing-cartao-de-todos';
-    const status = 'Nova Indicação';
-    const logStatus = JSON.stringify([{
-      status: 'Nova Indicação',
-      data: dataHoraISO,
-      origem: 'sistema'
-    }]);
-
-    // Busca índices das colunas
-    const leadsData = await readSheet(LEADS_SHEET, 'A1:Z1');
-    const headers = leadsData[0] || [];
-    
-    // Encontra índices de todas as colunas necessárias
-    const dataHoraIndex = findColumnIndex(headers, 'Data e Hora');
-    const nomeIndex = findColumnIndex(headers, 'Nome');
-    const telefoneIndex = findColumnIndex(headers, 'Telefone');
-    const codigoIndex = findColumnIndex(headers, 'Código de Indicação');
-    const origemIndex = findColumnIndex(headers, 'Origem');
-    const siteIndex = findColumnIndex(headers, 'Site');
-    const statusIndex = findColumnIndex(headers, 'Status');
-    const dataCriacaoIndex = findColumnIndex(headers, 'Data de Criação');
-    const novaIndicacaoIndex = findColumnIndex(headers, 'Nova Indicação');
-    const logStatusIndex = findColumnIndex(headers, 'Log de Status');
-    const ultimaMudancaIndex = findColumnIndex(headers, 'Última Mudança de Status');
-    const dataUltimaMudancaIndex = findColumnIndex(headers, 'Data Última Mudança');
-
-    // Cria array com todas as colunas (preenche com valores vazios e depois atualiza as necessárias)
-    const maxCols = Math.max(headers.length, 20); // Garante espaço para todas as colunas
-    const row = new Array(maxCols).fill('');
-    
-    // Preenche colunas básicas usando os índices encontrados
-    if (dataHoraIndex !== -1) row[dataHoraIndex] = dataHoraLegivel; // Data e Hora (formato brasileiro DD/MM/YYYY HH:mm:ss)
-    if (nomeIndex !== -1) row[nomeIndex] = nome; // Nome
-    if (telefoneIndex !== -1) row[telefoneIndex] = telefone; // Telefone
-    if (codigoIndex !== -1) row[codigoIndex] = codigoIndicacao || ''; // Código de Indicação
-    if (origemIndex !== -1) row[origemIndex] = origem; // Origem
-    if (siteIndex !== -1) row[siteIndex] = ''; // Site
-    if (statusIndex !== -1) row[statusIndex] = status; // Status
-    if (dataCriacaoIndex !== -1) row[dataCriacaoIndex] = dataHoraISO; // Data de Criação (ISO)
-    if (novaIndicacaoIndex !== -1) row[novaIndicacaoIndex] = dataHoraISO; // Nova Indicação (data/hora ISO)
-    if (logStatusIndex !== -1) row[logStatusIndex] = logStatus; // Log de Status (JSON)
-    if (ultimaMudancaIndex !== -1) row[ultimaMudancaIndex] = status; // Última Mudança de Status
-    if (dataUltimaMudancaIndex !== -1) row[dataUltimaMudancaIndex] = dataHoraISO; // Data Última Mudança
-
-    await appendRow(LEADS_SHEET, row);
-
-    // Envia para webhook se configurado
-    const webhookUrl = process.env.WEBHOOK_URL;
-    if (webhookUrl) {
-      try {
-        // Usa https module para enviar webhook
-        const https = require('https');
-        const { URL } = require('url');
-        const parsedUrl = new URL(webhookUrl);
-        const data = JSON.stringify({
-          nome,
-          telefone,
-          codigoIndicacao: codigoIndicacao || '',
-          recebidoEm: dataHoraISO,
-          origem
+      if (contactId) {
+        await supabase.from('ghl_contacts').upsert({
+          referral_id: referral.id,
+          ghl_contact_id: String(contactId),
         });
-
-        const options = {
-          hostname: parsedUrl.hostname,
-          port: parsedUrl.port || 443,
-          path: parsedUrl.pathname + parsedUrl.search,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length
-          }
-        };
-
-        const req = https.request(options, (res) => {
-          // Webhook enviado
-        });
-        req.on('error', (error) => {
-          console.error('Erro ao enviar webhook:', error.message);
-        });
-        req.write(data);
-        req.end();
-      } catch (webhookError) {
-        console.error('Erro ao enviar webhook:', webhookError.message);
       }
+    } catch (ghlError) {
+      await supabase.from('ghl_events').insert({
+        referral_id: referral.id,
+        event_type: 'lead_created',
+        status: 'error',
+        payload: { message: ghlError.message, details: ghlError.data || null },
+      });
+      await writeAuditLog('ghl_integration_error', 'referral', referral.id, { message: ghlError.message }, 'error');
     }
 
-    res.json({
-      ok: true,
-      message: 'Lead cadastrado com sucesso'
-    });
+    res.json({ ok: true, message: 'Lead cadastrado com sucesso' });
   } catch (error) {
     console.error('Erro ao cadastrar lead:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao cadastrar lead: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao cadastrar lead: ${error.message}` });
   }
 });
 
-// ROTA: Buscar dados do dashboard
-app.get('/api/dashboard', async (req, res) => {
+app.get('/api/dashboard', requireAuth, async (req, res) => {
   try {
+    const db = req.userClient;
     const { dataInicio, dataFim } = req.query;
 
-    // Busca leads
-    const leadsData = await readSheet(LEADS_SHEET);
-    if (leadsData.length === 0) {
-      return res.json({
-        ok: true,
-        indicacoes: [], // Array de indicados (leads)
-        indicadores: {}
-      });
+    let query = db
+      .from('referrals')
+      .select('id,nome,telefone,codigo_indicacao,origem,status,data_hora,data_criacao_iso,log_status,indicator_id,created_at');
+
+    if (dataInicio) {
+      query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
+    }
+    if (dataFim) {
+      query = query.lte('created_at', `${dataFim}T23:59:59.999Z`);
     }
 
-    const headers = leadsData[0];
-    const rows = leadsData.slice(1);
+    const { data: referrals, error } = await query.order('created_at', { ascending: false });
+    if (error) throw error;
 
-    // Encontra índices das colunas
-    const dataIndex = findColumnIndex(headers, 'Data e Hora') !== -1 
-      ? findColumnIndex(headers, 'Data e Hora')
-      : findColumnIndex(headers, 'Data/Hora');
-    const nomeIndex = findColumnIndex(headers, 'Nome');
-    const telefoneIndex = findColumnIndex(headers, 'Telefone');
-    const codigoIndex = findColumnIndex(headers, 'Código de Indicação');
-    const origemIndex = findColumnIndex(headers, 'Origem');
-    const statusIndex = findColumnIndex(headers, 'Status');
-    const logIndex = findColumnIndex(headers, 'Log de Status');
-
-    // Converte para objetos
-    let indicacoes = rows.map((row, idx) => {
-      const indicacao = {
-        id: idx + 2, // +2 porque começa na linha 2 (linha 1 é header)
-        nome: row[nomeIndex] || '',
-        telefone: row[telefoneIndex] || '',
-        codigoIndicacao: row[codigoIndex] || '',
-        origem: row[origemIndex] || '',
-        status: row[statusIndex] || 'Nova Indicação',
-        dataHora: row[dataIndex] || '',
-      };
-
-      // Parse do log se existir
-      if (row[logIndex]) {
-        try {
-          indicacao.logStatus = JSON.parse(row[logIndex]);
-        } catch {
-          indicacao.logStatus = [];
-        }
-      } else {
-        indicacao.logStatus = [];
-      }
-
-      return indicacao;
+    const indicators = {};
+    const { data: indicatorsMapRows } = await db.from('indicators').select('code,nome').eq('ativo', true);
+    (indicatorsMapRows || []).forEach((item) => {
+      indicators[String(item.code)] = item.nome;
     });
 
-    // Filtra por data se fornecido
-    if (dataInicio || dataFim) {
-      indicacoes = indicacoes.filter(indicacao => {
-        if (!indicacao.dataHora) return false;
-        
-        try {
-          // Converte formato brasileiro (DD/MM/YYYY HH:mm:ss) para Date
-          const indicacaoDate = parseBrazilianDate(indicacao.dataHora);
-          if (!indicacaoDate) return false;
+    const { data: indicatorRows } = await db
+      .from('indicators')
+      .select('code,nome,telefone')
+      .eq('ativo', true)
+      .order('created_at', { ascending: true });
 
-          if (dataInicio) {
-            // dataInicio vem no formato YYYY-MM-DD do input type="date"
-            // Criamos string no formato brasileiro e convertemos usando parseBrazilianDate
-            const [anoInicio, mesInicio, diaInicio] = dataInicio.split('-');
-            const dataInicioStr = `${String(diaInicio).padStart(2, '0')}/${String(mesInicio).padStart(2, '0')}/${anoInicio} 00:00:00`;
-            const inicio = parseBrazilianDate(dataInicioStr);
-            if (!inicio) return false;
-            
-            // Compara se a data do lead é >= data início
-            if (indicacaoDate < inicio) return false;
-          }
+    const indicadoresList = (indicatorRows || []).map((row) => ({
+      id: row.code,
+      nome: row.nome,
+      telefone: row.telefone || '',
+    }));
 
-          if (dataFim) {
-            // dataFim vem no formato YYYY-MM-DD do input type="date"
-            // Criamos string no formato brasileiro para o fim do dia e convertemos
-            const [anoFim, mesFim, diaFim] = dataFim.split('-');
-            const dataFimStr = `${String(diaFim).padStart(2, '0')}/${String(mesFim).padStart(2, '0')}/${anoFim} 23:59:59`;
-            const fim = parseBrazilianDate(dataFimStr);
-            if (!fim) return false;
-            
-            // Compara se a data do lead é <= data fim (fim do dia)
-            if (indicacaoDate > fim) return false;
-          }
-
-          return true;
-        } catch {
-          return false;
-        }
-      });
-    }
-
-    // Busca indicadores (da aba Promotor no Google Sheets - nome da aba pode mudar depois)
-    const indicadoresData = await readSheet(PROMOTOR_SHEET);
-    const indicadores = {};
-    const indicadoresList = [];
-    
-    if (indicadoresData.length > 1) {
-      const indicadorHeaders = indicadoresData[0];
-      const indicadorRows = indicadoresData.slice(1);
-      
-      const idIndex = findColumnIndex(indicadorHeaders, 'ID');
-      const nomeIndex = findColumnIndex(indicadorHeaders, 'Nome');
-      const telefoneIndex = findColumnIndex(indicadorHeaders, 'Telefone');
-
-      indicadorRows.forEach(row => {
-        const id = row[idIndex];
-        const nome = row[nomeIndex];
-        const telefone = row[telefoneIndex] || '';
-        
-        if (id && nome) {
-          indicadores[String(id)] = nome;
-          indicadoresList.push({
-            id: String(id),
-            nome,
-            telefone
-          });
-        }
-      });
-    }
+    const indicacoes = (referrals || []).map((row) => ({
+      id: row.id,
+      nome: row.nome,
+      telefone: row.telefone,
+      codigoIndicacao: row.codigo_indicacao || '',
+      origem: row.origem || '',
+      status: normalizeStatus(row.status),
+      dataHora: row.data_hora || formatBrazilianDateTime(row.data_criacao_iso || row.created_at),
+      logStatus: Array.isArray(row.log_status) ? row.log_status : [],
+    }));
 
     res.json({
       ok: true,
-      indicacoes, // Array de indicados (leads)
-      indicadores,
-      indicadoresList
+      indicacoes,
+      indicadores: indicators,
+      indicadoresList,
     });
   } catch (error) {
-    console.error('Erro ao buscar dados do dashboard:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao buscar dados: ' + error.message
-    });
+    console.error('Erro ao buscar dashboard:', error);
+    res.status(500).json({ ok: false, message: `Erro ao buscar dados: ${error.message}` });
   }
 });
 
-// ROTA: Buscar dados dos promotores (com métricas agrupadas)
-app.get('/api/promotores', async (req, res) => {
+app.get('/api/promotores', requireAuth, async (req, res) => {
   try {
+    const db = req.userClient;
     const { dataInicio, dataFim } = req.query;
-    const VALOR_PLANO = 59.99; // Valor mensal do plano
 
-    // Função auxiliar para parse de data (aceita com e sem segundos)
-    const parseDateFlex = (dateString) => {
-      if (!dateString) return null;
-      
-      // Tenta parse brasileiro padrão (com segundos)
-      let date = parseBrazilianDate(dateString);
-      if (date) return date;
-      
-      // Tenta formato DD/MM/YYYY HH:mm (sem segundos)
-      const trimmed = String(dateString).trim();
-      const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
-      if (match) {
-        const [, dia, mes, ano, hora, minuto] = match;
-        date = new Date(Date.UTC(
-          parseInt(ano, 10),
-          parseInt(mes, 10) - 1,
-          parseInt(dia, 10),
-          parseInt(hora, 10) + 3,
-          parseInt(minuto, 10),
-          0
-        ));
-        if (!isNaN(date.getTime())) return date;
-      }
-      
-      // Tenta formato ISO
-      try {
-        date = new Date(dateString);
-        if (!isNaN(date.getTime())) return date;
-      } catch {}
-      
-      return null;
-    };
+    let query = db
+      .from('referrals')
+      .select('id,nome,telefone,status,data_hora,codigo_indicacao,responsavel_nome,indicator_id,created_at');
 
-    // Tenta buscar da aba "Vendedores" primeiro, depois "Leads"
-    let leadsData;
-    try {
-      leadsData = await readSheet('Vendedores');
-    } catch {
-      leadsData = await readSheet(LEADS_SHEET);
-    }
+    if (dataInicio) query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
+    if (dataFim) query = query.lte('created_at', `${dataFim}T23:59:59.999Z`);
 
-    if (leadsData.length === 0) {
-      return res.json({
-        ok: true,
-        promotores: []
-      });
-    }
+    const { data: referrals, error } = await query;
+    if (error) throw error;
 
-    const headers = leadsData[0];
-    const rows = leadsData.slice(1);
+    const { data: indicatorsData } = await db.from('indicators').select('id,nome,code');
+    const indicatorById = new Map((indicatorsData || []).map((i) => [i.id, i]));
 
-    // Encontra índices das colunas (flexível para diferentes nomes)
-    const findColumnIndexFlex = (possibleNames) => {
-      for (const name of possibleNames) {
-        const idx = findColumnIndex(headers, name);
-        if (idx !== -1) return idx;
-      }
-      return -1;
-    };
+    const VALOR_PLANO = 59.99;
+    const grouped = new Map();
 
-    const dataIndex = findColumnIndexFlex(['inicio atendimento', 'Data e Hora', 'Data/Hora', 'dataHora']);
-    const nomeIndex = findColumnIndexFlex(['nome lead', 'Nome', 'nome']);
-    const telefoneIndex = findColumnIndexFlex(['telefone lead', 'Telefone', 'telefone']);
-    const promotorIndex = findColumnIndexFlex(['promotor', 'Promotor']);
-    const statusIndex = findColumnIndexFlex(['status', 'Status']);
-    const vendedorIndex = findColumnIndexFlex(['vendedor', 'Vendedor']);
-
-    // Converte para objetos, filtrando linhas vazias
-    let leads = rows
-      .map((row, idx) => {
-        const nome = nomeIndex >= 0 ? String(row[nomeIndex] || '').trim() : '';
-        const promotor = promotorIndex >= 0 ? String(row[promotorIndex] || '').trim() : '';
-        
-        // Ignora linhas sem nome ou sem promotor
-        if (!nome || !promotor) return null;
-        
-        return {
-          id: idx + 2,
-          nome: nome,
-          telefone: telefoneIndex >= 0 ? String(row[telefoneIndex] || '').trim() : '',
-          promotor: promotor,
-          vendedor: vendedorIndex >= 0 ? String(row[vendedorIndex] || '').trim() : '',
-          status: statusIndex >= 0 ? String(row[statusIndex] || 'Nova Indicação').trim() : 'Nova Indicação',
-          dataHora: dataIndex >= 0 ? String(row[dataIndex] || '').trim() : '',
-          protocolo: row[6] ? String(row[6] || '').trim() : '' // protocolo atendimento (coluna G)
-        };
-      })
-      .filter(lead => lead !== null); // Remove linhas null
-
-    // Filtra por data se fornecido
-    if (dataInicio || dataFim) {
-      leads = leads.filter(lead => {
-        if (!lead.dataHora) return false;
-        
-        try {
-          const leadDate = parseDateFlex(lead.dataHora);
-          if (!leadDate) return false;
-
-          if (dataInicio) {
-            const [anoInicio, mesInicio, diaInicio] = dataInicio.split('-');
-            const dataInicioStr = `${String(diaInicio).padStart(2, '0')}/${String(mesInicio).padStart(2, '0')}/${anoInicio} 00:00:00`;
-            const inicio = parseDateFlex(dataInicioStr);
-            if (!inicio || leadDate < inicio) return false;
-          }
-
-          if (dataFim) {
-            const [anoFim, mesFim, diaFim] = dataFim.split('-');
-            const dataFimStr = `${String(diaFim).padStart(2, '0')}/${String(mesFim).padStart(2, '0')}/${anoFim} 23:59:59`;
-            const fim = parseDateFlex(dataFimStr);
-            if (!fim || leadDate > fim) return false;
-          }
-
-          return true;
-        } catch {
-          return false;
-        }
-      });
-    }
-
-    // Agrupa por VENDEDOR (coluna A) - que são os "Promotores" na página
-    const promotoresMap = {};
-
-    leads.forEach(lead => {
-      // Usa VENDEDOR (coluna A) como chave, não PROMOTOR (coluna F)
-      const vendedorNome = lead.vendedor;
-      if (!vendedorNome) return;
-
-      if (!promotoresMap[vendedorNome]) {
-        promotoresMap[vendedorNome] = {
-          nome: vendedorNome,
+    (referrals || []).forEach((lead) => {
+      const key = (lead.responsavel_nome || 'Sem atendente').trim();
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          nome: key,
           totalLeads: 0,
           leadsPorStatus: {
             'Nova Indicação': 0,
-            'Em contato': 0,
             'Em Contato': 0,
             'Em Negociação': 0,
-            'Em negociação': 0,
-            'Fechado': 0,
-            'fechado': 0,
-            'Perdido': 0,
-            'perdido': 0
+            Fechado: 0,
+            Perdido: 0,
           },
+          indicadores: new Set(),
           leads: [],
-          primeiraData: null,
-          ultimaData: null,
-          indicadores: new Set() // Agora armazena os indicadores/promotores associados
-        };
+        });
       }
 
-      const promotor = promotoresMap[vendedorNome];
-      promotor.totalLeads++;
-      promotor.leads.push(lead);
+      const bucket = grouped.get(key);
+      const status = normalizeStatus(lead.status);
+      bucket.totalLeads += 1;
+      if (bucket.leadsPorStatus[status] !== undefined) bucket.leadsPorStatus[status] += 1;
 
-      // Conta por status (normaliza o nome do status)
-      let status = String(lead.status || 'Nova Indicação').trim();
-      
-      // Normaliza variações comuns
-      const statusNormalizado = status.toLowerCase();
-      if (statusNormalizado === 'em contato') {
-        status = 'Em Contato';
-      } else if (statusNormalizado === 'em negociação' || statusNormalizado === 'em negociacao') {
-        status = 'Em Negociação';
-      } else if (statusNormalizado === 'nova indicação' || statusNormalizado === 'nova indicacao') {
-        status = 'Nova Indicação';
-      } else if (statusNormalizado === 'fechado') {
-        status = 'Fechado';
-      } else if (statusNormalizado === 'perdido') {
-        status = 'Perdido';
-      } else {
-        // Mantém o status original mas capitaliza
-        status = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-      }
-      
-      // Incrementa o contador
-      if (promotor.leadsPorStatus[status] !== undefined) {
-        promotor.leadsPorStatus[status]++;
-      } else {
-        // Se não for um status padrão, adiciona como 'Nova Indicação'
-        promotor.leadsPorStatus['Nova Indicação']++;
-        console.log('⚠️ Status desconhecido:', status, 'Lead:', lead.nome);
-      }
+      const indicator = lead.indicator_id ? indicatorById.get(lead.indicator_id) : null;
+      if (indicator?.nome) bucket.indicadores.add(indicator.nome);
 
-      // Data mais antiga e mais recente
-      if (lead.dataHora) {
-        try {
-          const leadDate = parseDateFlex(lead.dataHora);
-          if (leadDate && !isNaN(leadDate.getTime())) {
-            if (!promotor.primeiraData || leadDate < promotor.primeiraData) {
-              promotor.primeiraData = leadDate;
-            }
-            if (!promotor.ultimaData || leadDate > promotor.ultimaData) {
-              promotor.ultimaData = leadDate;
-            }
-          }
-        } catch (e) {
-          console.error('Erro ao parsear data:', lead.dataHora, e);
-        }
-      }
-
-      // Indicadores únicos (os promotores da coluna F que geraram os leads)
-      if (lead.promotor && lead.promotor.trim()) {
-        promotor.indicadores.add(lead.promotor.trim());
-      }
+      bucket.leads.push({
+        id: lead.id,
+        nome: lead.nome,
+        telefone: lead.telefone,
+        status,
+        dataHora: lead.data_hora || formatBrazilianDateTime(lead.created_at),
+        promotor: indicator?.nome || lead.codigo_indicacao || '',
+        vendedor: key,
+      });
     });
 
-    // Converte para array e calcula métricas
-    const promotores = Object.values(promotoresMap).map(promotor => {
-      // Normaliza leadsPorStatus (soma variações e variações de capitalização)
-      const leadsPorStatusNormalizado = {
-        'Nova Indicação': (promotor.leadsPorStatus['Nova Indicação'] || 0) + (promotor.leadsPorStatus['nova indicação'] || 0) + (promotor.leadsPorStatus['Nova indicacao'] || 0),
-        'Em Contato': (promotor.leadsPorStatus['Em Contato'] || 0) + (promotor.leadsPorStatus['Em contato'] || 0) + (promotor.leadsPorStatus['em contato'] || 0),
-        'Em Negociação': (promotor.leadsPorStatus['Em Negociação'] || 0) + (promotor.leadsPorStatus['Em negociação'] || 0) + (promotor.leadsPorStatus['em negociação'] || 0) + (promotor.leadsPorStatus['Em negociacao'] || 0),
-        'Fechado': (promotor.leadsPorStatus['Fechado'] || 0) + (promotor.leadsPorStatus['fechado'] || 0),
-        'Perdido': (promotor.leadsPorStatus['Perdido'] || 0) + (promotor.leadsPorStatus['perdido'] || 0)
-      };
-      
-      // Debug: log dos status encontrados
-      console.log(`📊 Promotor ${promotor.nome}:`, {
-        totalLeads: promotor.totalLeads,
-        statusRaw: promotor.leadsPorStatus,
-        statusNormalizado: leadsPorStatusNormalizado
-      });
-      
-      // Calcula valor gerado (R$ 59,99 por lead fechado)
-      const leadsFechados = leadsPorStatusNormalizado['Fechado'] || 0;
-      const valorGerado = leadsFechados * VALOR_PLANO;
-
-      // Calcula taxa de conversão (Fechados / Total)
-      const taxaConversao = promotor.totalLeads > 0 
-        ? ((leadsFechados / promotor.totalLeads) * 100).toFixed(1)
-        : 0;
-
-      // Taxa de perda (Perdidos / Total)
-      const leadsPerdidos = leadsPorStatusNormalizado['Perdido'] || 0;
-      const taxaPerda = promotor.totalLeads > 0
-        ? ((leadsPerdidos / promotor.totalLeads) * 100).toFixed(1)
-        : 0;
+    const promotores = [...grouped.values()].map((p) => {
+      const leadsFechados = p.leadsPorStatus.Fechado || 0;
+      const valorGerado = Number((leadsFechados * VALOR_PLANO).toFixed(2));
+      const taxaConversao = p.totalLeads ? Number(((leadsFechados / p.totalLeads) * 100).toFixed(1)) : 0;
+      const taxaPerda = p.totalLeads ? Number((((p.leadsPorStatus.Perdido || 0) / p.totalLeads) * 100).toFixed(1)) : 0;
 
       return {
-        nome: promotor.nome, // Nome do VENDEDOR (coluna A)
-        totalLeads: promotor.totalLeads,
-        leadsPorStatus: leadsPorStatusNormalizado,
+        nome: p.nome,
+        totalLeads: p.totalLeads,
+        leadsPorStatus: p.leadsPorStatus,
         leadsFechados,
-        valorGerado: parseFloat(valorGerado.toFixed(2)),
-        taxaConversao: parseFloat(taxaConversao),
-        taxaPerda: parseFloat(taxaPerda),
-        primeiraData: promotor.primeiraData ? promotor.primeiraData.toISOString() : null,
-        ultimaData: promotor.ultimaData ? promotor.ultimaData.toISOString() : null,
-        indicadores: Array.from(promotor.indicadores).sort(), // Indicadores/promotores que geraram os leads
-        leads: promotor.leads // Inclui todos os leads para detalhamento
+        valorGerado,
+        taxaConversao,
+        taxaPerda,
+        indicadores: [...p.indicadores].sort(),
+        leads: p.leads,
       };
     });
 
-    // Ordena por valor gerado (maior primeiro), depois por total de leads
-    promotores.sort((a, b) => {
-      if (b.valorGerado !== a.valorGerado) {
-        return b.valorGerado - a.valorGerado;
-      }
-      return b.totalLeads - a.totalLeads;
-    });
+    promotores.sort((a, b) => b.valorGerado - a.valorGerado || b.totalLeads - a.totalLeads);
 
-    res.json({
-      ok: true,
-      promotores,
-      valorPlano: VALOR_PLANO
-    });
+    res.json({ ok: true, promotores, valorPlano: VALOR_PLANO });
   } catch (error) {
-    console.error('Erro ao buscar dados dos promotores:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao buscar dados: ' + error.message
-    });
+    console.error('Erro ao buscar promotores:', error);
+    res.status(500).json({ ok: false, message: `Erro ao buscar dados: ${error.message}` });
   }
 });
 
-// ROTA: Atualizar status do lead
-app.post('/api/leads/:leadId/status', async (req, res) => {
+app.post('/api/leads/:leadId/status', requireAuth, async (req, res) => {
   try {
-    const leadId = parseInt(req.params.leadId);
-    const { status } = req.body;
+    const db = req.userClient;
+    const { leadId } = req.params;
+    const status = normalizeStatus(req.body.status);
 
     if (!status) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Status é obrigatório'
-      });
+      return res.status(400).json({ ok: false, message: 'Status é obrigatório' });
     }
 
-    // Busca a linha do lead
-    const leadsData = await readSheet(LEADS_SHEET);
-    if (leadsData.length < leadId) {
-      return res.status(404).json({
-        ok: false,
-        message: 'Lead não encontrado'
-      });
-    }
+    const { data: lead, error: fetchError } = await db
+      .from('referrals')
+      .select('id,status,log_status')
+      .eq('id', leadId)
+      .maybeSingle();
 
-    const headers = leadsData[0];
-    const row = leadsData[leadId - 1]; // -1 porque leadId é baseado em índice + 2
+    if (fetchError) throw fetchError;
+    if (!lead) return res.status(404).json({ ok: false, message: 'Lead não encontrado' });
 
-    const statusIndex = findColumnIndex(headers, 'Status');
-    const logIndex = findColumnIndex(headers, 'Log de Status');
-    const ultimaMudancaIndex = findColumnIndex(headers, 'Última Mudança de Status');
-    const dataUltimaMudancaIndex = findColumnIndex(headers, 'Data Última Mudança');
-    
-    // Índices das colunas de status individuais
-    const novaIndicacaoIndex = findColumnIndex(headers, 'Nova Indicação');
-    const emContatoIndex = findColumnIndex(headers, 'Em Contato');
-    const emNegociacaoIndex = findColumnIndex(headers, 'Em Negociação');
-    const fechadoIndex = findColumnIndex(headers, 'Fechado');
-    const perdidoIndex = findColumnIndex(headers, 'Perdido');
+    const now = getSaoPauloISODate();
+    const timeline = Array.isArray(lead.log_status) ? [...lead.log_status] : [];
+    timeline.push({ status, data: now, origem: 'sistema' });
 
-    // Obtém log atual
-    let logStatus = [];
-    if (row[logIndex]) {
-      try {
-        logStatus = JSON.parse(row[logIndex]);
-      } catch {
-        logStatus = [];
-      }
-    }
-
-    // Data/hora atual em ISO
-    const dataHoraAtual = getSaoPauloISOString();
-
-    // Adiciona nova entrada no log
-    const novaEntrada = {
-      status: status,
-      data: dataHoraAtual,
-      origem: 'sistema'
+    const patch = {
+      status,
+      log_status: timeline,
+      ultima_mudanca_status: status,
+      data_ultima_mudanca: now,
     };
-    logStatus.push(novaEntrada);
 
-    // Atualiza as células básicas
-    const statusCol = statusIndex + 1;
-    const logCol = logIndex + 1;
-    const ultimaMudancaCol = ultimaMudancaIndex + 1;
-    const dataUltimaMudancaCol = dataUltimaMudancaIndex + 1;
+    if (status === 'Nova Indicação') patch.nova_indicacao_em = now;
+    if (status === 'Em Contato') patch.em_contato_em = now;
+    if (status === 'Em Negociação') patch.em_negociacao_em = now;
+    if (status === 'Fechado') patch.fechado_em = now;
+    if (status === 'Perdido') patch.perdido_em = now;
 
-    await updateCell(LEADS_SHEET, leadId, statusCol, status);
-    await updateCell(LEADS_SHEET, leadId, logCol, JSON.stringify(logStatus));
-    await updateCell(LEADS_SHEET, leadId, ultimaMudancaCol, status);
-    await updateCell(LEADS_SHEET, leadId, dataUltimaMudancaCol, dataHoraAtual);
+    const { error: updateError } = await db.from('referrals').update(patch).eq('id', leadId);
+    if (updateError) throw updateError;
 
-    // Atualiza a coluna específica do status com a data/hora ISO
-    // Quando o lead passa por um status, preenche a coluna daquele status com a data/hora
-    if (status === 'Nova Indicação' && novaIndicacaoIndex !== -1) {
-      await updateCell(LEADS_SHEET, leadId, novaIndicacaoIndex + 1, dataHoraAtual);
-    } else if (status === 'Em Contato' && emContatoIndex !== -1) {
-      await updateCell(LEADS_SHEET, leadId, emContatoIndex + 1, dataHoraAtual);
-    } else if (status === 'Em Negociação' && emNegociacaoIndex !== -1) {
-      await updateCell(LEADS_SHEET, leadId, emNegociacaoIndex + 1, dataHoraAtual);
-    } else if (status === 'Fechado' && fechadoIndex !== -1) {
-      await updateCell(LEADS_SHEET, leadId, fechadoIndex + 1, dataHoraAtual);
-    } else if (status === 'Perdido' && perdidoIndex !== -1) {
-      await updateCell(LEADS_SHEET, leadId, perdidoIndex + 1, dataHoraAtual);
-    }
+    await writeAuditLog('lead_status_updated', 'referral', leadId, { status }, 'success');
 
-    res.json({
-      ok: true,
-      message: 'Status atualizado com sucesso',
-      log: logStatus
-    });
+    res.json({ ok: true, message: 'Status atualizado com sucesso', log: timeline });
   } catch (error) {
     console.error('Erro ao atualizar status:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao atualizar status: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao atualizar status: ${error.message}` });
   }
 });
 
-// ROTA: Buscar timeline do lead
-app.get('/api/leads/:leadId/timeline', async (req, res) => {
+app.get('/api/leads/:leadId/timeline', requireAuth, async (req, res) => {
   try {
-    const leadId = parseInt(req.params.leadId);
+    const db = req.userClient;
+    const { leadId } = req.params;
+    const { data: lead, error } = await db
+      .from('referrals')
+      .select('id,log_status,data_hora,data_criacao_iso,created_at')
+      .eq('id', leadId)
+      .maybeSingle();
 
-    const leadsData = await readSheet(LEADS_SHEET);
-    if (leadsData.length < leadId) {
-      return res.status(404).json({
-        ok: false,
-        message: 'Lead não encontrado'
-      });
-    }
+    if (error) throw error;
+    if (!lead) return res.status(404).json({ ok: false, message: 'Lead não encontrado' });
 
-    const headers = leadsData[0];
-    const row = leadsData[leadId - 1];
-
-    const logIndex = findColumnIndex(headers, 'Log de Status');
-    const dataIndex = findColumnIndex(headers, 'Data e Hora') !== -1 
-      ? findColumnIndex(headers, 'Data e Hora')
-      : findColumnIndex(headers, 'Data/Hora');
-
-    let logStatus = [];
-    if (row[logIndex]) {
-      try {
-        logStatus = JSON.parse(row[logIndex]);
-      } catch {
-        logStatus = [];
-      }
-    }
-
-    // Se não tem log, cria um com a data de criação
-    if (logStatus.length === 0 && row[dataIndex]) {
-      logStatus = [{
-        status: 'Nova Indicação',
-        data: row[dataIndex],
-        origem: 'sistema'
-      }];
-    }
+    const timeline = Array.isArray(lead.log_status) ? lead.log_status : [];
 
     res.json({
       ok: true,
-      timeline: logStatus,
-      dataCriacao: row[dataIndex] || ''
+      timeline,
+      dataCriacao: lead.data_hora || formatBrazilianDateTime(lead.data_criacao_iso || lead.created_at),
     });
   } catch (error) {
     console.error('Erro ao buscar timeline:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao buscar timeline: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao buscar timeline: ${error.message}` });
   }
 });
 
-// ROTA: Criar novo indicador
-app.post('/api/indicadores', async (req, res) => {
+app.post('/api/indicadores', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const db = req.userClient;
     const { nome, telefone, chavePix } = req.body;
-
-    // Validação dos campos obrigatórios
     if (!nome || !telefone || !chavePix) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Nome, Telefone e Chave Pix são obrigatórios'
-      });
+      return res.status(400).json({ ok: false, message: 'Nome, Telefone e Chave Pix são obrigatórios' });
     }
 
-    // Garante que as colunas existam
-    await ensurePromotorColumnsExist();
+    const code = await generateUniqueIndicatorCode(db);
+    const url = `${DEFAULT_LANDING_BASE_URL}/?codigo=${encodeURIComponent(code)}`;
 
-    // Busca todos os dados da aba Promotor para encontrar o último ID
-    const promotorData = await readSheet(PROMOTOR_SHEET);
-    const headers = promotorData[0] || [];
-    const rows = promotorData.slice(1);
+    const { data, error } = await db
+      .from('indicators')
+      .insert({
+        nome: String(nome).trim(),
+        telefone: String(telefone).trim(),
+        chave_pix: String(chavePix).trim(),
+        code,
+        url,
+        total_indicacoes: 0,
+      })
+      .select('*')
+      .single();
 
-    // Encontra índice da coluna ID
-    const idIndex = findColumnIndex(headers, 'ID');
-    
-    // Encontra o maior ID existente
-    let ultimoId = 0;
-    if (idIndex !== -1 && rows.length > 0) {
-      rows.forEach(row => {
-        const id = row[idIndex];
-        if (id) {
-          const idNum = parseInt(id);
-          if (!isNaN(idNum) && idNum > ultimoId) {
-            ultimoId = idNum;
-          }
-        }
-      });
-    }
+    if (error) throw error;
 
-    // Gera novo ID sequencial
-    const novoId = ultimoId + 1;
-
-    // Gera URL automaticamente
-    const url = `https://cartaodetodos.companygenesis.com.br/?codigo=${novoId}`;
-
-    // Data de criação em ISO
-    const dataCriacao = getSaoPauloISOString();
-
-    // Encontra índices das colunas
-    const nomeIndex = findColumnIndex(headers, 'Nome');
-    const telefoneIndex = findColumnIndex(headers, 'Telefone');
-    const chavePixIndex = findColumnIndex(headers, 'Chave Pix');
-    const urlIndex = findColumnIndex(headers, 'URL');
-    const dataCriacaoIndex = findColumnIndex(headers, 'Data de Criação');
-    const totalIndicacoesIndex = findColumnIndex(headers, 'Total de Indicações');
-
-    // Cria array com todas as colunas (preenche com valores vazios e depois atualiza as necessárias)
-    const maxCols = Math.max(headers.length, 10);
-    const row = new Array(maxCols).fill('');
-
-    // Preenche colunas usando os índices encontrados
-    if (idIndex !== -1) row[idIndex] = novoId;
-    if (nomeIndex !== -1) row[nomeIndex] = nome;
-    if (telefoneIndex !== -1) row[telefoneIndex] = telefone;
-    if (chavePixIndex !== -1) row[chavePixIndex] = chavePix;
-    if (urlIndex !== -1) row[urlIndex] = url;
-    if (dataCriacaoIndex !== -1) row[dataCriacaoIndex] = dataCriacao;
-    if (totalIndicacoesIndex !== -1) row[totalIndicacoesIndex] = 0; // Inicia com 0 indicações
-
-    // Adiciona linha na planilha
-    await appendRow(PROMOTOR_SHEET, row);
+    await writeAuditLog('indicator_created', 'indicator', data.id, { nome: data.nome, code: data.code }, 'success');
 
     res.json({
       ok: true,
       message: 'Indicador criado com sucesso',
       indicador: {
-        id: novoId,
-        nome,
-        telefone,
-        chavePix,
-        url
-      }
+        id: data.code,
+        nome: data.nome,
+        telefone: data.telefone,
+        chavePix: data.chave_pix,
+        url: data.url,
+      },
     });
   } catch (error) {
     console.error('Erro ao criar indicador:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao criar indicador: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao criar indicador: ${error.message}` });
   }
 });
 
-// ROTA: Listar usuários
-app.get('/api/usuarios', async (req, res) => {
+app.get('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await ensureUsuariosColumnsExist();
-    
-    const data = await readSheet(USUARIOS_SHEET);
-    if (data.length === 0) {
-      return res.json({
-        ok: true,
-        usuarios: []
-      });
-    }
+    const db = req.userClient;
+    const { data, error } = await db
+      .from('users_profiles')
+      .select('id,email,nome,tipo,permissao,created_at')
+      .order('created_at', { ascending: true });
 
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const emailIndex = findColumnIndex(headers, 'Email');
-    const nomeIndex = findColumnIndex(headers, 'Nome');
-    const senhaIndex = findColumnIndex(headers, 'Senha');
-    const tipoIndex = findColumnIndex(headers, 'Tipo');
-    const permissaoIndex = findColumnIndex(headers, 'Permissao');
-
-    const usuarios = rows
-      .filter(row => row[emailIndex] && row[emailIndex].trim()) // Filtra linhas vazias
-      .map(row => {
-        const tipo = (row[tipoIndex] || '').trim();
-        const permissao = (row[permissaoIndex] || '').trim();
-        return {
-          email: (row[emailIndex] || '').trim(),
-          nome: (row[nomeIndex] || '').trim(),
-          senha: row[senhaIndex] || '', // ATENÇÃO: Senha em texto plano - considerar criptografia em produção
-          tipo: tipo || 'promotor',
-          permissao: permissao || 'usuario'
-        };
-      });
-
-    res.json({
-      ok: true,
-      usuarios
-    });
+    if (error) throw error;
+    res.json({ ok: true, usuarios: data || [] });
   } catch (error) {
     console.error('Erro ao listar usuários:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao listar usuários: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao listar usuários: ${error.message}` });
   }
 });
 
-// ROTA: Criar usuário
-app.post('/api/usuarios', async (req, res) => {
+app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await ensureUsuariosColumnsExist();
-
     const { nome, email, senha, tipo, permissao } = req.body;
-
     if (!nome || !email || !senha || !tipo || !permissao) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Todos os campos são obrigatórios'
-      });
+      return res.status(400).json({ ok: false, message: 'Todos os campos são obrigatórios' });
     }
 
-    // Validação de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Email inválido'
-      });
-    }
+    const emailNorm = String(email).trim().toLowerCase();
+    const { data: exists } = await supabase.from('users_profiles').select('email').eq('email', emailNorm).maybeSingle();
+    if (exists) return res.status(400).json({ ok: false, message: 'Email já cadastrado' });
 
-    // Verifica se o email já existe
-    const data = await readSheet(USUARIOS_SHEET);
-    const headers = data[0] || [];
-    const rows = data.slice(1);
-    const emailIndex = findColumnIndex(headers, 'Email');
-    
-    const emailExists = rows.some(row => 
-      row[emailIndex] && row[emailIndex].toLowerCase().trim() === email.toLowerCase().trim()
-    );
-
-    if (emailExists) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Email já cadastrado'
-      });
-    }
-
-    // Adiciona novo usuário
-    const nomeIndex = findColumnIndex(headers, 'Nome');
-    const senhaIndex = findColumnIndex(headers, 'Senha');
-    const tipoIndex = findColumnIndex(headers, 'Tipo');
-    const permissaoIndex = findColumnIndex(headers, 'Permissao');
-
-    const maxCols = Math.max(headers.length, 5);
-    const row = new Array(maxCols).fill('');
-    
-    row[emailIndex] = email.toLowerCase().trim();
-    row[nomeIndex] = nome.trim();
-    row[senhaIndex] = senha; // ATENÇÃO: Senha em texto plano - considerar criptografia em produção
-    row[tipoIndex] = tipo;
-    row[permissaoIndex] = permissao;
-
-    await appendRow(USUARIOS_SHEET, row);
-
-    res.json({
-      ok: true,
-      message: 'Usuário criado com sucesso',
-      usuario: {
-        email: email.toLowerCase().trim(),
-        nome: nome.trim(),
-        tipo,
-        permissao
-      }
+    const { data: authResult, error: authError } = await supabase.auth.admin.createUser({
+      email: emailNorm,
+      password: String(senha),
+      email_confirm: true,
+      user_metadata: { nome: String(nome).trim(), tipo, permissao },
     });
+    if (authError) throw authError;
+
+    const userId = authResult?.user?.id;
+    if (!userId) throw new Error('Não foi possível criar usuário no Auth');
+
+    const { error } = await supabase.from('users_profiles').insert({
+      id: userId,
+      nome: String(nome).trim(),
+      email: emailNorm,
+      tipo,
+      permissao,
+      senha: null,
+    });
+    if (error) {
+      await supabase.auth.admin.deleteUser(userId);
+      throw error;
+    }
+
+    res.json({ ok: true, message: 'Usuário criado com sucesso', usuario: { id: userId, nome, email: emailNorm, tipo, permissao } });
   } catch (error) {
     console.error('Erro ao criar usuário:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao criar usuário: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao criar usuário: ${error.message}` });
   }
 });
 
-// ROTA: Atualizar usuário
-app.put('/api/usuarios/:email', async (req, res) => {
+app.put('/api/usuarios/:email', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await ensureUsuariosColumnsExist();
-
-    const emailParam = decodeURIComponent(req.params.email);
+    const email = decodeURIComponent(req.params.email).toLowerCase().trim();
     const { nome, senha, tipo, permissao } = req.body;
 
     if (!nome || !tipo || !permissao) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Nome, tipo e permissão são obrigatórios'
-      });
+      return res.status(400).json({ ok: false, message: 'Nome, tipo e permissão são obrigatórios' });
     }
 
-    const data = await readSheet(USUARIOS_SHEET);
-    const headers = data[0] || [];
-    const rows = data.slice(1);
-    
-    const emailIndex = findColumnIndex(headers, 'Email');
-    const nomeIndex = findColumnIndex(headers, 'Nome');
-    const senhaIndex = findColumnIndex(headers, 'Senha');
-    const tipoIndex = findColumnIndex(headers, 'Tipo');
-    const permissaoIndex = findColumnIndex(headers, 'Permissao');
+    const { data: target, error: targetError } = await supabase
+      .from('users_profiles')
+      .select('id,email')
+      .eq('email', email)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    if (!target) return res.status(404).json({ ok: false, message: 'Usuário não encontrado' });
 
-    // Encontra o índice da linha do usuário
-    const userRowIndex = rows.findIndex(row => 
-      row[emailIndex] && row[emailIndex].toLowerCase().trim() === emailParam.toLowerCase().trim()
-    );
+    const patch = { nome: String(nome).trim(), tipo, permissao };
+    const { error } = await supabase.from('users_profiles').update(patch).eq('id', target.id);
+    if (error) throw error;
 
-    if (userRowIndex === -1) {
-      return res.status(404).json({
-        ok: false,
-        message: 'Usuário não encontrado'
-      });
-    }
+    const authPatch = {
+      user_metadata: { nome: patch.nome, tipo: patch.tipo, permissao: patch.permissao },
+    };
+    if (senha && String(senha).trim()) authPatch.password = String(senha).trim();
+    const { error: authError } = await supabase.auth.admin.updateUserById(target.id, authPatch);
+    if (authError) throw authError;
 
-    // Atualiza os campos (a linha real na planilha é userRowIndex + 2 porque header é linha 1 e índice começa em 0)
-    const rowNumber = userRowIndex + 2;
-    
-    // Atualiza nome
-    const nomeColLetter = String.fromCharCode(65 + nomeIndex);
-    await writeSheet(USUARIOS_SHEET, `${nomeColLetter}${rowNumber}`, [[nome.trim()]]);
-    
-    // Atualiza senha apenas se fornecida
-    if (senha && senha.trim()) {
-      const senhaColLetter = String.fromCharCode(65 + senhaIndex);
-      await writeSheet(USUARIOS_SHEET, `${senhaColLetter}${rowNumber}`, [[senha]]);
-    }
-    
-    // Atualiza tipo
-    const tipoColLetter = String.fromCharCode(65 + tipoIndex);
-    await writeSheet(USUARIOS_SHEET, `${tipoColLetter}${rowNumber}`, [[tipo]]);
-    
-    // Atualiza permissão
-    const permissaoColLetter = String.fromCharCode(65 + permissaoIndex);
-    await writeSheet(USUARIOS_SHEET, `${permissaoColLetter}${rowNumber}`, [[permissao]]);
-
-    res.json({
-      ok: true,
-      message: 'Usuário atualizado com sucesso',
-      usuario: {
-        email: emailParam,
-        nome: nome.trim(),
-        tipo,
-        permissao
-      }
-    });
+    res.json({ ok: true, message: 'Usuário atualizado com sucesso', usuario: { id: target.id, email, ...patch } });
   } catch (error) {
     console.error('Erro ao atualizar usuário:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao atualizar usuário: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao atualizar usuário: ${error.message}` });
   }
 });
 
-// ROTA: Excluir usuário
-app.delete('/api/usuarios/:email', async (req, res) => {
+app.delete('/api/usuarios/:email', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await ensureUsuariosColumnsExist();
+    const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+    const { data: target, error: targetError } = await supabase
+      .from('users_profiles')
+      .select('id,email')
+      .eq('email', email)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    if (!target) return res.status(404).json({ ok: false, message: 'Usuário não encontrado' });
 
-    const emailParam = decodeURIComponent(req.params.email);
+    const { error: authError } = await supabase.auth.admin.deleteUser(target.id);
+    if (authError) throw authError;
 
-    const data = await readSheet(USUARIOS_SHEET);
-    const headers = data[0] || [];
-    const rows = data.slice(1);
-    
-    const emailIndex = findColumnIndex(headers, 'Email');
-
-    // Encontra o índice da linha do usuário
-    const userRowIndex = rows.findIndex(row => 
-      row[emailIndex] && row[emailIndex].toLowerCase().trim() === emailParam.toLowerCase().trim()
-    );
-
-    if (userRowIndex === -1) {
-      return res.status(404).json({
-        ok: false,
-        message: 'Usuário não encontrado'
-      });
-    }
-
-    // Remove a linha (a linha real na planilha é userRowIndex + 2)
-    const rowNumber = userRowIndex + 2;
-    
-    // Usa batchUpdate para deletar a linha
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      resource: {
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId: await getSheetId(USUARIOS_SHEET),
-              dimension: 'ROWS',
-              startIndex: rowNumber - 1, // Índice baseado em 0
-              endIndex: rowNumber
-            }
-          }
-        }]
-      }
-    });
-
-    res.json({
-      ok: true,
-      message: 'Usuário excluído com sucesso'
-    });
+    res.json({ ok: true, message: 'Usuário excluído com sucesso' });
   } catch (error) {
     console.error('Erro ao excluir usuário:', error);
-    res.status(500).json({
-      ok: false,
-      message: 'Erro ao excluir usuário: ' + error.message
-    });
+    res.status(500).json({ ok: false, message: `Erro ao excluir usuário: ${error.message}` });
   }
 });
 
-// Função auxiliar para obter o ID da aba
-async function getSheetId(sheetName) {
+app.post('/webhooks/ghl/conversion', async (req, res) => {
+  const secretHeader = req.headers['x-webhook-secret'];
+  const expectedSecret = process.env.GHL_WEBHOOK_SECRET;
+
+  if (expectedSecret && secretHeader !== expectedSecret) {
+    return res.status(401).json({ ok: false, message: 'Webhook não autorizado' });
+  }
+
   try {
-    const response = await sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID
-    });
-    
-    const sheet = response.data.sheets.find(s => s.properties.title === sheetName);
-    return sheet ? sheet.properties.sheetId : null;
-  } catch (error) {
-    console.error('Erro ao obter ID da aba:', error);
-    throw error;
-  }
-}
+    const payload = req.body || {};
+    const rawString = JSON.stringify(payload);
+    const hash = crypto.createHash('sha256').update(rawString).digest('hex');
 
-// ROTA: Health check
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true, status: 'online' });
+    const { data: alreadyProcessed } = await supabase
+      .from('webhook_events')
+      .select('id')
+      .eq('idempotency_key', hash)
+      .maybeSingle();
+
+    if (alreadyProcessed) {
+      return res.json({ ok: true, message: 'Evento já processado' });
+    }
+
+    const { data: eventRow, error: eventError } = await supabase
+      .from('webhook_events')
+      .insert({
+        source: 'ghl',
+        event_type: payload.type || 'conversion',
+        payload,
+        headers: {
+          'user-agent': req.headers['user-agent'] || '',
+          'x-webhook-secret': secretHeader ? 'present' : 'missing',
+        },
+        idempotency_key: hash,
+        status: 'received',
+      })
+      .select('*')
+      .single();
+
+    if (eventError) throw eventError;
+
+    const contactId = payload.contactId || payload.contact?.id || payload.data?.contactId || null;
+    const atendente = payload.userName || payload.assignedTo || payload.data?.assignedTo || null;
+    const indicadorCode = payload.customData?.indicatorCode || payload.indicatorCode || null;
+
+    let referral = null;
+    if (contactId) {
+      const { data: refMap } = await supabase
+        .from('ghl_contacts')
+        .select('referral_id')
+        .eq('ghl_contact_id', String(contactId))
+        .maybeSingle();
+
+      if (refMap?.referral_id) {
+        const { data: refData } = await supabase.from('referrals').select('*').eq('id', refMap.referral_id).maybeSingle();
+        referral = refData || null;
+      }
+    }
+
+    if (!referral && indicadorCode) {
+      const { data: candidate } = await supabase
+        .from('referrals')
+        .select('*')
+        .eq('codigo_indicacao', String(indicadorCode))
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      referral = candidate || null;
+    }
+
+    if (referral) {
+      await supabase.from('conversions').insert({
+        referral_id: referral.id,
+        indicator_id: referral.indicator_id,
+        atendente_nome: atendente,
+        webhook_event_id: eventRow.id,
+        payload,
+      });
+
+      const timeline = Array.isArray(referral.log_status) ? [...referral.log_status] : [];
+      const now = getSaoPauloISODate();
+      timeline.push({ status: 'Fechado', data: now, origem: 'webhook-ghl' });
+
+      await supabase.from('referrals').update({
+        status: 'Fechado',
+        responsavel_nome: atendente,
+        fechado_em: now,
+        log_status: timeline,
+      }).eq('id', referral.id);
+
+      await writeAuditLog('conversion_received', 'referral', referral.id, { webhookEventId: eventRow.id }, 'success');
+    }
+
+    await supabase.from('webhook_events').update({ status: 'processed' }).eq('id', eventRow.id);
+
+    res.json({ ok: true, message: 'Webhook processado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao processar webhook:', error);
+    res.status(500).json({ ok: false, message: `Erro ao processar webhook: ${error.message}` });
+  }
 });
 
-// Inicializa servidor
 async function startServer() {
-  await initGoogleSheets();
-  await ensureColumnsExist();
-  await ensurePromotorColumnsExist();
-  await ensureUsuariosColumnsExist();
-
   app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`📊 Planilha: ${SPREADSHEET_ID}`);
+    console.log('✅ Backend usando Supabase + GHL');
   });
 }
 
-// Para Vercel (serverless)
 if (process.env.VERCEL) {
-  // Inicializa Google Sheets antes de exportar
-  initGoogleSheets().then(() => {
-    ensureColumnsExist();
-    ensurePromotorColumnsExist();
-    ensureUsuariosColumnsExist();
-  }).catch(console.error);
-  
   module.exports = app;
 } else {
-  // Para desenvolvimento local
-  startServer().catch(console.error);
+  startServer().catch((error) => {
+    console.error('Falha ao iniciar servidor:', error);
+    process.exit(1);
+  });
 }
-
