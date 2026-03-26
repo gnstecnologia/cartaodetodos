@@ -360,6 +360,7 @@ function renderIndicados() {
     const telefone = indicacao.telefone || indicacao.Telefone || 'Sem telefone';
     const dataHora = indicacao.dataHora || indicacao['Data e Hora'] || indicacao['Data de Criação'] || '';
     const status = indicacao.status || indicacao.Status || 'Nova Indicação';
+    const statusTexto = indicacao.statusLegivel || status;
     const origem = indicacao.origem || indicacao.Origem || '';
     const statusClass = getStatusClass(status);
     
@@ -367,7 +368,7 @@ function renderIndicados() {
       <div class="indicado-card" style="animation-delay: ${index * 0.05}s;">
         <div class="indicado-header">
           <h3 class="indicado-name">${nome}</h3>
-          <span class="status-badge ${statusClass}">${status}</span>
+          <span class="status-badge ${statusClass}">${statusTexto}</span>
         </div>
         
         <div class="indicado-info">

@@ -268,7 +268,6 @@ function exportDashboardData(format) {
     'Promotor',
     'Origem',
     'Status',
-    'Responsável (GHL)',
     'Data fechamento',
   ];
 
@@ -282,14 +281,13 @@ function exportDashboardData(format) {
     const codigo = indicacao.codigoIndicacao || indicacao['Código de Indicação'] || 'Sem código';
     const indicador = getNomeIndicador(codigo);
     const origem = indicacao.origem || indicacao.Origem || 'N/A';
-    const status = indicacao.status || indicacao.Status || 'N/A';
+    const status = indicacao.statusLegivel || indicacao.status || indicacao.Status || 'N/A';
     const promotor = indicacao.promotorNome || '';
-    const resp = indicacao.responsavelNome || '';
     const fechado = indicacao.fechadoEm
       ? new Date(indicacao.fechadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
       : '';
 
-    return [dataHora, nome, telefone, codigo, indicador, promotor, origem, status, resp, fechado];
+    return [dataHora, nome, telefone, codigo, indicador, promotor, origem, status, fechado];
   };
 
   // Gera nome do arquivo com data
@@ -428,11 +426,13 @@ function updateMetricasAvancadas(m) {
     const filtP = di || df
       ? '<p class="dashboard-legend-filter">Com filtro: números principais usam a <strong>data de entrada</strong> do lead; tabelas de ganhos usam a <strong>data do fechamento</strong>.</p>'
       : '<p class="dashboard-legend-filter">Sem filtro de datas: visão geral. Use o período acima para refinar.</p>';
+    const L = m.legendas || {};
     const items = [
-      m.legendas.cohortEntrada,
-      m.legendas.fechamentosDataGanho,
-      m.legendas.televendas,
-      m.legendas.promotores,
+      L['papéis'],
+      L.etapasLead,
+      L.cohortEntrada,
+      L.fechamentosDataGanho,
+      L.promotores,
     ]
       .filter(Boolean)
       .map((t) => `<li>${escapeHtmlDash(t)}</li>`)
@@ -440,10 +440,8 @@ function updateMetricasAvancadas(m) {
     legBox.innerHTML = `${filtP}<ul class="dashboard-legend-list">${items}</ul>`;
   }
 
-  const legTv = document.getElementById('legendaTelevendas');
-  if (legTv) legTv.textContent = 'Ganhos no período por responsável no GHL.';
   const legProm = document.getElementById('legendaPromotoresRanking');
-  if (legProm) legProm.textContent = 'Ganhos no período por promotor (campo no lead).';
+  if (legProm) legProm.textContent = 'Quem fechou no período (captura ou GHL), contagem unificada.';
 
   const fillRankingTbody = (tbodyId, rows, emptyMsg) => {
     const tbody = document.getElementById(tbodyId);
@@ -468,14 +466,9 @@ function updateMetricasAvancadas(m) {
   };
 
   fillRankingTbody(
-    'televendasTableBody',
-    m.televendasRanking,
-    'Nenhum fechamento com data no período.',
-  );
-  fillRankingTbody(
     'promotoresRankingTableBody',
     m.promotoresRanking,
-    'Nenhum fechamento no período ou todos sem promotor cadastrado no lead.',
+    'Nenhum fechamento no período ou promotor não informado.',
   );
 
   updateStatusFunilChart(m);
@@ -502,7 +495,7 @@ function updateStatusFunilChart(metricas) {
   chartStatusFunil = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Fechados', 'Perdidos', 'Em andamento'],
+      labels: ['Ganhos', 'Perdidos', 'Em andamento'],
       datasets: [
         {
           data: [f, p, e],

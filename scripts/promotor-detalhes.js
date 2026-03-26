@@ -11,6 +11,12 @@ const ITEMS_PER_PAGE = 20;
 let currentPage = 1;
 const VALOR_PLANO = 59.99;
 
+function statusLegivelUi(internal) {
+  if (internal === 'Nova Indicação') return 'Novo indicado';
+  if (internal === 'Fechado') return 'Ganho';
+  return internal;
+}
+
 // Função para converter formato brasileiro para Date
 function parseBrazilianDate(dateString) {
   if (!dateString || typeof dateString !== 'string') return null;
@@ -99,7 +105,6 @@ async function loadPromotorData() {
       throw new Error('Nome não especificado na URL');
     }
     const promotorNome = decodeURIComponent(promotorNomeEncoded);
-    const tipo = params.get('tipo') === 'televendas' ? 'televendas' : 'promotor';
 
     let storedParsed = null;
     try {
@@ -111,8 +116,7 @@ async function loadPromotorData() {
 
     const sessionMatches =
       storedParsed &&
-      (storedParsed.nome || '').trim().toLowerCase() === promotorNome.trim().toLowerCase() &&
-      (storedParsed.agrupamento || 'promotor') === tipo;
+      (storedParsed.nome || '').trim().toLowerCase() === promotorNome.trim().toLowerCase();
 
     if (sessionMatches) {
       promotorData = storedParsed;
@@ -127,23 +131,18 @@ async function loadPromotorData() {
         throw new Error(data.message || 'Erro ao processar dados');
       }
 
-      const list = tipo === 'televendas' ? data.televendas || [] : data.promotores || [];
+      const list = data.promotores || [];
       const row = list.find((p) => {
         const n = (p.nome || '').trim();
         return n.toLowerCase() === promotorNome.trim().toLowerCase();
       });
 
       if (!row) {
-        throw new Error(
-          tipo === 'televendas'
-            ? `Responsável (GHL) "${promotorNome}" não encontrado neste período`
-            : `Promotor "${promotorNome}" não encontrado neste período`,
-        );
+        throw new Error(`Promotor "${promotorNome}" não encontrado neste período`);
       }
 
       promotorData = {
         nome: row.nome,
-        agrupamento: tipo,
         leads: row.leads,
         metricas: {
           totalLeads: row.totalLeads,
@@ -153,8 +152,6 @@ async function loadPromotorData() {
           taxaPerda: row.taxaPerda,
           leadsPorStatus: row.leadsPorStatus,
           indicadores: row.indicadores,
-          promotoresAssociados: row.promotoresAssociados,
-          televendasAssociados: row.televendasAssociados,
         },
       };
     }
@@ -170,12 +167,11 @@ async function loadPromotorData() {
 
     const nomeEl = document.getElementById('promotorNome');
     if (nomeEl) {
-      const isTv = (promotorData.agrupamento || 'promotor') === 'televendas';
       nomeEl.innerHTML = `
-      <i class="fas ${isTv ? 'fa-headset' : 'fa-user-tie'}"></i>
+      <i class="fas fa-user-tie"></i>
       ${promotorData.nome}
       <span style="display:block;font-size:0.45em;font-weight:600;opacity:0.85;margin-top:0.35rem;">
-        ${isTv ? 'Telesales — responsável no GHL' : 'Promotor — campo no lead'}
+        Promotor — nome unificado (captura ou GHL ao fechar)
       </span>
     `;
     } else {
@@ -206,7 +202,6 @@ function renderMetricas() {
   }
 
   const metricas = promotorData.metricas;
-  const agrupamento = promotorData.agrupamento || 'promotor';
   const metricasGrid = document.getElementById('metricasGrid');
 
   if (!metricasGrid) {
@@ -257,24 +252,6 @@ function renderMetricas() {
               Indicadores
             </div>
             <div class="metrica-value">${metricas.indicadores.length}</div>
-          </div>
-        ` : ''}
-        ${agrupamento === 'televendas' && metricas.promotoresAssociados && metricas.promotoresAssociados.length > 0 ? `
-          <div class="metrica-card">
-            <div class="metrica-label">
-              <i class="fas fa-user-tie"></i>
-              Promotores nos leads
-            </div>
-            <div class="metrica-value">${metricas.promotoresAssociados.length}</div>
-          </div>
-        ` : ''}
-        ${agrupamento === 'promotor' && metricas.televendasAssociados && metricas.televendasAssociados.length > 0 ? `
-          <div class="metrica-card">
-            <div class="metrica-label">
-              <i class="fas fa-headset"></i>
-              Televendas (GHL)
-            </div>
-            <div class="metrica-value">${metricas.televendasAssociados.length}</div>
           </div>
         ` : ''}
   `;
@@ -389,10 +366,10 @@ function renderLeads() {
     const nome = lead.nome || 'Sem nome';
     const telefone = lead.telefone || 'Sem telefone';
     const status = lead.status || 'Nova Indicação';
+    const statusExibir = lead.statusLegivel || statusLegivelUi(status);
     const dataHora = lead.dataHora || '';
     const indicadorNome = lead.indicadorNome || '';
     const promotorNomeLead = lead.promotorNome || '';
-    const televendasNome = lead.televendasNome || lead.vendedor || '';
     const statusClass = getStatusClass(status);
     
     // Usa ID do lead ou cria um identificador único baseado em nome e telefone
@@ -403,7 +380,7 @@ function renderLeads() {
       <div class="lead-card">
         <div class="lead-header">
           <h3 class="lead-name">${nome}</h3>
-          <span class="status-badge ${statusClass}">${status}</span>
+          <span class="status-badge ${statusClass}">${statusExibir}</span>
         </div>
         <div class="lead-info">
           <div class="info-item">
@@ -426,12 +403,6 @@ function renderLeads() {
             <div class="info-item">
               <i class="fas fa-user-tie"></i>
               <span>Promotor: ${promotorNomeLead}</span>
-            </div>
-          ` : ''}
-          ${televendasNome ? `
-            <div class="info-item">
-              <i class="fas fa-headset"></i>
-              <span>Televendas (GHL): ${televendasNome}</span>
             </div>
           ` : ''}
           ${lead.status === 'Fechado' ? `
@@ -553,7 +524,6 @@ function exportPromotorLeadsData(format) {
     'Telefone',
     'Indicador',
     'Promotor',
-    'Televendas (GHL)',
     'Status',
     'Valor (R$)',
   ];
@@ -569,8 +539,7 @@ function exportPromotorLeadsData(format) {
       lead.telefone || 'N/A',
       lead.indicadorNome || '',
       lead.promotorNome || '',
-      lead.televendasNome || lead.vendedor || '',
-      lead.status || 'N/A',
+      lead.statusLegivel || statusLegivelUi(lead.status || 'N/A'),
       valor,
     ];
   };
@@ -705,6 +674,7 @@ async function showTimeline(leadId) {
       };
       
       const status = entry.status || entry.Status || 'Nova Indicação';
+      const tituloStatus = entry.statusLegivel || statusLegivelUi(status);
       const icon = statusIcons[status] || 'fa-circle';
       const color = statusColors[status] || '#666';
       
@@ -717,7 +687,7 @@ async function showTimeline(leadId) {
             <i class="fas ${icon}"></i>
           </div>
           <div style="flex: 1;">
-            <div style="font-weight: 700; color: var(--color-dark); margin-bottom: 0.25rem;">${status}</div>
+            <div style="font-weight: 700; color: var(--color-dark); margin-bottom: 0.25rem;">${tituloStatus}</div>
             <div style="font-size: 0.9rem; color: rgba(15, 31, 19, 0.6);">${dataHora ? formatDate(dataHora) : 'Data não disponível'}</div>
             ${entry.observacao ? `<div style="margin-top: 0.5rem; font-size: 0.9rem; color: rgba(15, 31, 19, 0.7);">${entry.observacao}</div>` : ''}
           </div>

@@ -2176,7 +2176,7 @@
               <div class="dashboard-legend-inner" id="dashboardLegendContent"></div>
             </details>
 
-            <!-- Status + tabelas televendas/promotores lado a lado -->
+            <!-- Funil + ranking de promotores (ganhos no período) -->
             <div class="dashboard-top-grid">
               <div class="chart-container chart-container--compact chart-container--status animate-slide-up">
                 <div class="chart-header">
@@ -2184,50 +2184,29 @@
                     <i class="fas fa-chart-pie chart-title-icon"></i>
                     <div>
                       <h3 class="chart-title">Funil do período</h3>
-                      <span class="chart-subtitle">Fechados, perdidos e em andamento</span>
+                      <span class="chart-subtitle">Indicados: fechados, perdidos e em andamento</span>
                     </div>
                   </div>
                 </div>
                 <canvas id="chartStatusFunil"></canvas>
               </div>
-              <div class="dashboard-dual-rankings">
-                <div class="ranking-section ranking-section--compact animate-slide-up">
-                  <div class="section-title-group">
-                    <i class="fas fa-headset section-title-icon"></i>
-                    <h2 class="section-title">Televendas</h2>
-                  </div>
-                  <p id="legendaTelevendas" class="table-hint"></p>
-                  <div class="table-wrapper">
-                    <table class="ranking-table">
-                      <thead>
-                        <tr>
-                          <th>Responsável (GHL)</th>
-                          <th>Ganhos</th>
-                          <th>%</th>
-                        </tr>
-                      </thead>
-                      <tbody id="televendasTableBody"></tbody>
-                    </table>
-                  </div>
+              <div class="ranking-section ranking-section--compact animate-slide-up">
+                <div class="section-title-group">
+                  <i class="fas fa-user-tie section-title-icon"></i>
+                  <h2 class="section-title">Promotores — ganhos no período</h2>
                 </div>
-                <div class="ranking-section ranking-section--compact animate-slide-up">
-                  <div class="section-title-group">
-                    <i class="fas fa-user-tie section-title-icon"></i>
-                    <h2 class="section-title">Promotores</h2>
-                  </div>
-                  <p id="legendaPromotoresRanking" class="table-hint"></p>
-                  <div class="table-wrapper">
-                    <table class="ranking-table">
-                      <thead>
-                        <tr>
-                          <th>Promotor</th>
-                          <th>Ganhos</th>
-                          <th>%</th>
-                        </tr>
-                      </thead>
-                      <tbody id="promotoresRankingTableBody"></tbody>
-                    </table>
-                  </div>
+                <p id="legendaPromotoresRanking" class="table-hint"></p>
+                <div class="table-wrapper">
+                  <table class="ranking-table">
+                    <thead>
+                      <tr>
+                        <th>Promotor</th>
+                        <th>Ganhos</th>
+                        <th>%</th>
+                      </tr>
+                    </thead>
+                    <tbody id="promotoresRankingTableBody"></tbody>
+                  </table>
                 </div>
               </div>
             </div>

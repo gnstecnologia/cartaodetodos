@@ -1061,7 +1061,7 @@
           </div>
           <div class="filter-group">
             <label class="filter-label">
-              <i class="fas fa-search"></i> <span id="searchFilterLabel">Buscar</span>
+              <i class="fas fa-search"></i> <span id="searchFilterLabel">Buscar promotor</span>
             </label>
             <input type="text" id="searchFilter" class="filter-input" placeholder="Nome do promotor" oninput="applyFilters()" />
           </div>
@@ -1158,15 +1158,9 @@
       <div id="error" class="error" style="display: none;"></div>
 
       <div id="dashboardContent" style="display: none;">
-        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center;">
-          <button type="button" id="dashTabPromotor" class="nav-btn" onclick="setDashboardPromotoresView('promotor')" style="font-size: 0.9rem;">
-            <i class="fas fa-user-tie"></i> Por promotor (campo)
-          </button>
-          <button type="button" id="dashTabTelevendas" class="nav-btn" onclick="setDashboardPromotoresView('televendas')" style="font-size: 0.9rem;">
-            <i class="fas fa-headset"></i> Por televendas (GHL)
-          </button>
-        </div>
-        <p id="dashPromotoresViewHint" style="font-size: 0.85rem; opacity: 0.85; margin: 0 0 1.25rem; color: var(--color-dark); max-width: 52rem;"></p>
+        <p id="dashPromotoresViewHint" style="font-size: 0.85rem; opacity: 0.85; margin: 0 0 1.25rem; color: var(--color-dark); max-width: 52rem;">
+          Indicado: cliente indicado. Indicador: dono do código de indicação. Promotor: quem trabalha a venda (nome unificado na captura ou no GHL ao fechar).
+        </p>
 
         <!-- Cards de Métricas Principais -->
         <div class="stats-row">
@@ -1259,118 +1253,7 @@
                 <i class="fas fa-trophy"></i>
                 Ranking de Promotores
               </h2>
-              <div id="rankingTable">
-    <table class="ranking-table">
-      <tbody>
-        
-            <tr onclick="viewPromotorDetalhes('Nayalle')" style="cursor: pointer;">
-              <td style="display: flex; justify-content: center; align-items: center;">
-                <span class="rank-badge rank-1">1</span>
-              </td>
-              <td style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; overflow: visible; flex: 1;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-dark); word-break: break-word; overflow-wrap: break-word;">
-                  Nayalle
-                </div>
-                
-                  <div style="font-size: 0.75rem; color: rgba(15, 31, 19, 0.6); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
-                    <i class="fas fa-users"></i> 
-                    <span>4 indicadores</span>
-                  </div>
-                
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  R$&nbsp;119,98
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Valor Gerado</div>
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  5
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Leads</div>
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  40%
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Conversão</div>
-              </td>
-            </tr>
-          
-            <tr onclick="viewPromotorDetalhes('Jo%C3%A3o')" style="cursor: pointer;">
-              <td style="display: flex; justify-content: center; align-items: center;">
-                <span class="rank-badge rank-2">2</span>
-              </td>
-              <td style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; overflow: visible; flex: 1;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-dark); word-break: break-word; overflow-wrap: break-word;">
-                  João
-                </div>
-                
-                  <div style="font-size: 0.75rem; color: rgba(15, 31, 19, 0.6); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
-                    <i class="fas fa-users"></i> 
-                    <span>3 indicadores</span>
-                  </div>
-                
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  R$&nbsp;119,98
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Valor Gerado</div>
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  3
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Leads</div>
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  66.7%
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Conversão</div>
-              </td>
-            </tr>
-          
-            <tr onclick="viewPromotorDetalhes('Larissa')" style="cursor: pointer;">
-              <td style="display: flex; justify-content: center; align-items: center;">
-                <span class="rank-badge rank-3">3</span>
-              </td>
-              <td style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; overflow: visible; flex: 1;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-dark); word-break: break-word; overflow-wrap: break-word;">
-                  Larissa
-                </div>
-                
-                  <div style="font-size: 0.75rem; color: rgba(15, 31, 19, 0.6); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
-                    <i class="fas fa-users"></i> 
-                    <span>2 indicadores</span>
-                  </div>
-                
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  R$&nbsp;59,99
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Valor Gerado</div>
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  2
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Leads</div>
-              </td>
-              <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
-                  50%
-                </div>
-                <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Conversão</div>
-              </td>
-            </tr>
-          
-      </tbody>
-    </table>
-  </div>
+              <div id="rankingTable"></div>
             </div>
           </div>
         </div>

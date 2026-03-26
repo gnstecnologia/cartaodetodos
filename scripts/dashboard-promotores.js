@@ -4,10 +4,13 @@ const DASHBOARD_PASSWORD = 'admin123';
 const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 const PROMOTORES_ENDPOINT = `${API_BASE_URL}/api/promotores`;
 
+function labelEtapaNoGrafico(statusKey) {
+  if (statusKey === 'Nova Indicação') return 'Novo indicado';
+  if (statusKey === 'Fechado') return 'Ganho';
+  return statusKey;
+}
+
 // Variáveis globais
-let rawPromotoresPorCampo = [];
-let rawTelevendasPorGhl = [];
-let promotoresViewMode = 'promotor';
 let allPromotoresData = [];
 let filteredPromotoresData = [];
 let chartTimeline = null;
@@ -83,10 +86,7 @@ async function loadDashboard() {
       throw new Error(data.message || 'Erro ao processar dados');
     }
 
-    rawPromotoresPorCampo = data.promotores || [];
-    rawTelevendasPorGhl = data.televendas || [];
-    refreshPromotoresActiveDataset();
-    syncDashboardPromotoresViewUI();
+    allPromotoresData = data.promotores || [];
     applyFilters();
 
     loadingEl.style.display = 'none';
@@ -97,70 +97,6 @@ async function loadDashboard() {
     errorEl.textContent = 'Erro ao carregar dados. ' + error.message;
     errorEl.style.display = 'block';
   }
-}
-
-function refreshPromotoresActiveDataset() {
-  allPromotoresData =
-    promotoresViewMode === 'televendas' ? rawTelevendasPorGhl : rawPromotoresPorCampo;
-}
-
-function syncDashboardPromotoresViewUI() {
-  const tabP = document.getElementById('dashTabPromotor');
-  const tabT = document.getElementById('dashTabTelevendas');
-  if (tabP) tabP.classList.toggle('dash-view-tab-active', promotoresViewMode === 'promotor');
-  if (tabT) tabT.classList.toggle('dash-view-tab-active', promotoresViewMode === 'televendas');
-
-  const hint = document.getElementById('dashPromotoresViewHint');
-  if (hint) {
-    hint.textContent =
-      promotoresViewMode === 'televendas'
-        ? 'Agrupamento por responsável no GHL ao fechar o lead (mesma base da tabela de televendas do dashboard principal).'
-        : 'Agrupamento pelo campo promotor do lead (URL ?promotor= ou custom fields no webhook de ganho). Indicador continua sendo quem trouxe o código.';
-  }
-
-  const statLbl = document.getElementById('statLabelPrincipal');
-  if (statLbl) {
-    statLbl.textContent =
-      promotoresViewMode === 'televendas' ? 'Responsáveis (GHL)' : 'Promotores (campo)';
-  }
-
-  const rankTitle = document.getElementById('rankingSectionTitle');
-  if (rankTitle) {
-    rankTitle.innerHTML =
-      promotoresViewMode === 'televendas'
-        ? '<i class="fas fa-headset"></i> Ranking — Televendas (GHL)'
-        : '<i class="fas fa-trophy"></i> Ranking — Promotores (campo)';
-  }
-
-  const cmpTitle = document.getElementById('chartComparativoTitle');
-  if (cmpTitle) {
-    cmpTitle.innerHTML =
-      promotoresViewMode === 'televendas'
-        ? '<i class="fas fa-chart-bar"></i> Comparativo — Televendas'
-        : '<i class="fas fa-chart-bar"></i> Comparativo — Promotores';
-  }
-
-  const searchLbl = document.getElementById('searchFilterLabel');
-  if (searchLbl) {
-    searchLbl.textContent =
-      promotoresViewMode === 'televendas' ? 'Buscar responsável (GHL)' : 'Buscar promotor';
-  }
-  const searchInp = document.getElementById('searchFilter');
-  if (searchInp) {
-    searchInp.placeholder =
-      promotoresViewMode === 'televendas'
-        ? 'Nome do responsável no GHL'
-        : 'Nome do promotor';
-  }
-}
-
-function setDashboardPromotoresView(mode) {
-  const next = mode === 'televendas' ? 'televendas' : 'promotor';
-  if (promotoresViewMode === next) return;
-  promotoresViewMode = next;
-  refreshPromotoresActiveDataset();
-  syncDashboardPromotoresViewUI();
-  applyFilters();
 }
 
 // Aplica filtros
@@ -219,7 +155,7 @@ function exportPromotoresData(format) {
     'Telefone',
     'Total de Leads',
     'Leads Contato',
-    'Leads Fechados',
+    'Ganhos',
     'Leads Perdidos',
     'Valor Gerado (R$)',
     'Taxa de Conversão (%)',
@@ -233,7 +169,7 @@ function exportPromotoresData(format) {
       promotor.telefone || 'N/A',
       promotor.totalLeads || 0,
       promotor.leadsContato || 0,
-      promotor.leadsFechados || 0,
+      promotor.leadsFechados || 0, // ganhos (webhook / status Fechado)
       promotor.leadsPerdidos || 0,
       (promotor.valorGerado || 0).toFixed(2),
       (promotor.taxaConversao || 0).toFixed(2),
@@ -244,8 +180,7 @@ function exportPromotoresData(format) {
   // Gera nome do arquivo com data
   const agora = new Date();
   const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
-  const suffix = promotoresViewMode === 'televendas' ? 'televendas_ghl' : 'promotores_campo';
-  const filename = `dashboard_${suffix}_${dataStr}`;
+  const filename = `dashboard_promotores_${dataStr}`;
 
   // Exporta conforme formato
   if (format === 'csv') {
@@ -410,8 +345,9 @@ function updateStatusChart() {
     });
   });
 
-  const labels = Object.keys(statusData).filter(k => statusData[k] > 0);
-  const values = labels.map(k => statusData[k]);
+  const keys = Object.keys(statusData).filter((k) => statusData[k] > 0);
+  const labels = keys.map(labelEtapaNoGrafico);
+  const values = keys.map((k) => statusData[k]);
   const colors = [
     'rgba(37, 99, 235, 0.8)',
     'rgba(245, 158, 11, 0.8)',
@@ -430,7 +366,7 @@ function updateStatusChart() {
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: colors.slice(0, labels.length),
+        backgroundColor: colors.slice(0, keys.length),
         borderWidth: 2,
         borderColor: '#ffffff'
       }]
@@ -469,7 +405,7 @@ function updateComparativoChart() {
           backgroundColor: 'rgba(15, 138, 60, 0.8)',
         },
         {
-          label: 'Leads Fechados',
+          label: 'Ganhos',
           data: top10.map(p => p.leadsFechados),
           backgroundColor: 'rgba(16, 185, 129, 0.8)',
         }
@@ -512,8 +448,9 @@ function updateFunilChart() {
     });
   });
 
-  const labels = ['Nova Indicação', 'Em Contato', 'Em Negociação', 'Fechado'];
-  const values = labels.map(l => funil[l]);
+  const keys = ['Nova Indicação', 'Em Contato', 'Em Negociação', 'Fechado'];
+  const labels = keys.map(labelEtapaNoGrafico);
+  const values = keys.map((l) => funil[l]);
 
   if (chartFunil) {
     chartFunil.destroy();
@@ -569,7 +506,7 @@ function updateRanking() {
           const rank = index + 1;
           const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
           return `
-            <tr onclick="viewPromotorDetalhes('${encodeURIComponent(promotor.nome)}','${promotoresViewMode}')" style="cursor: pointer;">
+            <tr onclick="viewPromotorDetalhes(${JSON.stringify(promotor.nome)})" style="cursor: pointer;">
               <td style="display: flex; justify-content: center; align-items: center;">
                 <span class="rank-badge ${rankClass}">${rank}</span>
               </td>
@@ -581,18 +518,6 @@ function updateRanking() {
                   <div style="font-size: 0.75rem; color: rgba(15, 31, 19, 0.6); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
                     <i class="fas fa-users"></i> 
                     <span>${promotor.indicadores.length} indicador${promotor.indicadores.length > 1 ? 'es' : ''}</span>
-                  </div>
-                ` : ''}
-                ${promotoresViewMode === 'promotor' && promotor.televendasAssociados && promotor.televendasAssociados.length > 0 ? `
-                  <div style="font-size: 0.72rem; color: rgba(15, 31, 19, 0.55); display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-headset"></i>
-                    <span>${promotor.televendasAssociados.length} televendas no período</span>
-                  </div>
-                ` : ''}
-                ${promotoresViewMode === 'televendas' && promotor.promotoresAssociados && promotor.promotoresAssociados.length > 0 ? `
-                  <div style="font-size: 0.72rem; color: rgba(15, 31, 19, 0.55); display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-user-tie"></i>
-                    <span>${promotor.promotoresAssociados.length} promotor(es) nos leads</span>
                   </div>
                 ` : ''}
               </td>
@@ -624,15 +549,12 @@ function updateRanking() {
   rankingEl.innerHTML = rankingHTML;
 }
 
-// Visualiza detalhes do promotor ou da linha de televendas (mesma página, agrupamento distinto)
-function viewPromotorDetalhes(promotorNome, tipo) {
-  const t = tipo === 'televendas' ? 'televendas' : 'promotor';
-  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(promotorNome)}&tipo=${t}`;
+function viewPromotorDetalhes(nome) {
+  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(nome)}`;
 }
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
-  syncDashboardPromotoresViewUI();
   if (await checkAuth()) {
     loadDashboard();
     setTimeout(initializeExportButtons, 500);
