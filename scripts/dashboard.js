@@ -163,15 +163,14 @@ async function loadDashboard() {
     if (params.toString()) url += '?' + params.toString();
 
     const response = await fetch(url, { credentials: 'include' });
-    
-    if (!response.ok) {
-      throw new Error('Erro ao buscar dados');
-    }
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (data.ok === false) {
-      throw new Error(data.message || 'Erro ao processar dados');
+    if (!response.ok || data.ok === false) {
+      throw new Error(
+        data.message ||
+          (response.status === 401 ? 'Sessão expirada. Entre novamente.' : `Erro ao buscar dados (${response.status})`),
+      );
     }
 
     // Atualiza o mapeamento de indicadores vindos da API
@@ -187,7 +186,7 @@ async function loadDashboard() {
   } catch (error) {
     console.error('Erro ao carregar dashboard:', error);
     loadingEl.style.display = 'none';
-    errorEl.textContent = 'Erro ao carregar dados. Verifique se o endpoint está configurado corretamente.';
+    errorEl.textContent = error.message || 'Erro ao carregar dados. Verifique a conexão ou faça login novamente.';
     errorEl.style.display = 'block';
   }
 }
@@ -310,6 +309,12 @@ function exportDashboardData(format) {
 
 // Processa dados filtrados
 function processFilteredData(data) {
+  const rankingBody = document.getElementById('rankingBody');
+  if (!rankingBody) {
+    console.error('Elemento rankingBody não encontrado no DOM');
+    return;
+  }
+
   // Agrupa indicações por código
   const indicacoesPorCodigo = {};
   let totalIndicacoes = 0;
@@ -334,14 +339,14 @@ function processFilteredData(data) {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Atualiza estatísticas
-  document.getElementById('totalIndicados').textContent = totalIndicacoes;
-  document.getElementById('totalIndicadores').textContent = ranking.length;
   const media = ranking.length > 0 ? Math.round(totalIndicacoes / ranking.length) : 0;
-  document.getElementById('mediaIndicadores').textContent = media;
+  const elInd = document.getElementById('totalIndicados');
+  const elInds = document.getElementById('totalIndicadores');
+  const elMed = document.getElementById('mediaIndicadores');
+  if (elInd) elInd.textContent = totalIndicacoes;
+  if (elInds) elInds.textContent = ranking.length;
+  if (elMed) elMed.textContent = media;
 
-  // Atualiza tabela de ranking
-  const rankingBody = document.getElementById('rankingBody');
   rankingBody.innerHTML = '';
 
   if (ranking.length === 0) {
@@ -650,6 +655,14 @@ function updateTimelineChart(data) {
 function updatePizzaChart(ranking) {
   const ctx = document.getElementById('chartPizza');
   if (!ctx) return;
+
+  if (!ranking || ranking.length === 0) {
+    if (chartPizza) {
+      chartPizza.destroy();
+      chartPizza = null;
+    }
+    return;
+  }
 
   const top5 = ranking.slice(0, 5);
   const othersCount = ranking.slice(5).reduce((sum, item) => sum + item.count, 0);

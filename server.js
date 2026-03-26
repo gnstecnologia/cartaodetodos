@@ -660,11 +660,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     const db = req.userClient;
     const { dataInicio, dataFim } = req.query;
 
-    let query = db
-      .from('referrals')
-      .select(
-        'id,nome,telefone,codigo_indicacao,origem,status,data_hora,data_criacao_iso,log_status,indicator_id,created_at,fechado_em,perdido_em,responsavel_nome,promotor_nome',
-      );
+    // select('*') evita erro 500 se a coluna promotor_nome ainda não existir no banco (migração pendente).
+    let query = db.from('referrals').select('*');
 
     if (dataInicio) {
       query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
@@ -676,10 +673,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     const { data: referrals, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
 
-    let closedQuery = db
-      .from('referrals')
-      .select('id,status,responsavel_nome,promotor_nome,fechado_em')
-      .not('fechado_em', 'is', null);
+    let closedQuery = db.from('referrals').select('*').not('fechado_em', 'is', null);
     if (dataInicio) {
       closedQuery = closedQuery.gte('fechado_em', `${dataInicio}T00:00:00.000Z`);
     }
@@ -742,11 +736,7 @@ app.get('/api/promotores', requireAuth, async (req, res) => {
     const db = req.userClient;
     const { dataInicio, dataFim } = req.query;
 
-    let query = db
-      .from('referrals')
-      .select(
-        'id,nome,telefone,status,data_hora,codigo_indicacao,responsavel_nome,promotor_nome,indicator_id,created_at',
-      );
+    let query = db.from('referrals').select('*');
 
     if (dataInicio) query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
     if (dataFim) query = query.lte('created_at', `${dataFim}T23:59:59.999Z`);

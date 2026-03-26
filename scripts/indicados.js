@@ -131,16 +131,15 @@ async function loadIndicados() {
   contentEl.style.display = 'none';
 
   try {
-    const response = await fetch(DATA_ENDPOINT);
-    
-    if (!response.ok) {
-      throw new Error('Erro ao buscar dados');
-    }
+    const response = await fetch(DATA_ENDPOINT, { credentials: 'include' });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (data.ok === false) {
-      throw new Error(data.message || 'Erro ao processar dados');
+    if (!response.ok || data.ok === false) {
+      throw new Error(
+        data.message ||
+          (response.status === 401 ? 'Sessão expirada. Entre novamente.' : `Erro ao buscar dados (${response.status})`),
+      );
     }
 
     // Processa dados dos indicados
@@ -151,7 +150,7 @@ async function loadIndicados() {
   } catch (error) {
     console.error('Erro ao carregar indicados:', error);
     loadingEl.style.display = 'none';
-    errorEl.textContent = 'Erro ao carregar dados. Verifique se o endpoint está configurado corretamente.';
+    errorEl.textContent = error.message || 'Erro ao carregar dados. Verifique a conexão ou faça login novamente.';
     errorEl.style.display = 'block';
   }
 }
@@ -499,7 +498,9 @@ function changePage(page) {
 // Busca timeline do lead
 async function loadTimeline(leadId) {
   try {
-    const response = await fetch(`${TIMELINE_ENDPOINT}/${leadId}/timeline`);
+    const response = await fetch(`${TIMELINE_ENDPOINT}/${leadId}/timeline`, {
+      credentials: 'include',
+    });
     if (!response.ok) throw new Error('Erro ao buscar timeline');
     const data = await response.json();
     return data.timeline || [];
