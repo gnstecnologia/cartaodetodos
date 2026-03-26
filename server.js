@@ -220,6 +220,70 @@ function statusLegivel(internalStatus) {
   return s;
 }
 
+function normalizeNomeKey(value) {
+  if (value == null) return '';
+  return String(value)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function isUuidLike(value) {
+  const s = String(value || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+}
+
+/** Extrai ID do promotor (se vier no payload). */
+function extractPromotorIdFromGhlPayload(payload) {
+  const p = payload || {};
+  const c = p.customData || p.custom_data || {};
+  const raw =
+    c.promotorId ??
+    c.promotor_id ??
+    p.promotorId ??
+    p.promotor_id ??
+    p['ID Promotor'] ??
+    p['Id Promotor'];
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return s || null;
+}
+
+/**
+ * Cadastro dinâmico de promotor:
+ * - Se vier um UUID no payload, tenta usar como ID (cria se não existir).
+ * - Se não, deduplica por nome_norm (trim + collapse spaces + lowercase).
+ */
+async function getOrCreatePromotor(db, nome, explicitId = null) {
+  const nomeTrim = nome != null && String(nome).trim() ? String(nome).trim() : '';
+  if (!nomeTrim) return null;
+
+  const nomeNorm = normalizeNomeKey(nomeTrim);
+
+  if (explicitId && isUuidLike(explicitId)) {
+    const id = String(explicitId).trim();
+    const { data: existing } = await db.from('promoters').select('id').eq('id', id).maybeSingle();
+    if (existing?.id) return existing.id;
+
+    const { data: created, error } = await db
+      .from('promoters')
+      .insert({ id, nome: nomeTrim, nome_norm: nomeNorm })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return created?.id || null;
+  }
+
+  // Upsert por nome_norm (índice unique no banco)
+  const { data: up, error: upErr } = await db
+    .from('promoters')
+    .upsert({ nome: nomeTrim, nome_norm: nomeNorm }, { onConflict: 'nome_norm' })
+    .select('id')
+    .single();
+  if (upErr) throw upErr;
+  return up?.id || null;
+}
+
 /**
  * Se o referral ainda não tem indicador, tenta resolver pelo payload do webhook de ganho (código ou Nome Indicador).
  */
@@ -463,6 +527,7 @@ function aggregateReferralsByPromotor(referrals, indicatorById) {
       dataHora: lead.data_hora || formatBrazilianDateTime(lead.created_at),
       indicadorNome: indicator?.nome || lead.codigo_indicacao || '',
       promotorNome: keyRaw || '',
+      promotorId: lead.promotor_id || null,
     });
   }
 
@@ -662,6 +727,8 @@ app.post('/api/leads', async (req, res) => {
     const promotorTrim =
       promotorNome != null && String(promotorNome).trim() ? String(promotorNome).trim() : null;
 
+    const promotorId = promotorTrim ? await getOrCreatePromotor(supabase, promotorTrim) : null;
+
     const { data: referral, error } = await supabase
       .from('referrals')
       .insert({
@@ -670,6 +737,7 @@ app.post('/api/leads', async (req, res) => {
         indicator_id: indicator?.id || null,
         codigo_indicacao: indicator?.code || String(codigoIndicacao || '').trim() || null,
         promotor_nome: promotorTrim,
+        promotor_id: promotorId,
         status: 'Nova Indicação',
         origem: 'landing-cartao-de-todos',
         data_hora: formatBrazilianDateTime(createdAt),
@@ -1143,11 +1211,17 @@ app.post('/webhooks/ghl/conversion', async (req, res) => {
       const promotorFinal =
         promotorWebhook || (referral.promotor_nome && String(referral.promotor_nome).trim()) || null;
 
+      const promotorIdRaw = extractPromotorIdFromGhlPayload(payload);
+      const promotorIdResolved = promotorFinal
+        ? await getOrCreatePromotor(supabase, promotorFinal, promotorIdRaw)
+        : null;
+
       const updatePayload = {
         status: 'Fechado',
         fechado_em: now,
         log_status: timeline,
         promotor_nome: promotorFinal,
+        promotor_id: promotorIdResolved,
         ...indicatorPatch,
       };
       if (atendente) updatePayload.responsavel_nome = atendente;

@@ -34,6 +34,12 @@
         gap: 1rem;
       }
 
+      .header-top-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
       .dashboard-title {
         font-family: 'Source Sans 3', sans-serif;
         font-size: clamp(1.8rem, 4vw, 2.5rem);
@@ -1741,6 +1747,16 @@
           position: relative;
         }
 
+        .header-top-actions {
+          position: absolute;
+          top: 0;
+          right: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.5rem;
+        }
+
         /* Ajusta botões em telas médias */
         .nav-groups {
           gap: 1rem;
@@ -1762,9 +1778,7 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          position: absolute;
-          top: 0;
-          right: 0;
+          position: static;
         }
 
         /* Esconde o botão hambúrguer quando o menu está aberto */
@@ -1860,26 +1874,19 @@
         <div class="dashboard-container">
           <div class="dashboard-header">
             <h1 class="dashboard-title">Dashboard de Indicados</h1>
-            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu">
-              <i class="fas fa-bars"></i>
-            </button>
+            <div class="header-top-actions">
+              <div id="userProfile" class="user-profile" style="display: none;">
+                <i class="fas fa-user-circle"></i>
+                <span>Usuário</span>
+              </div>
+              <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu">
+                <i class="fas fa-bars"></i>
+              </button>
+            </div>
             <div class="dashboard-nav">
               <div class="nav-groups">
-                <!-- Grupo: Perfil -->
-                <div class="nav-group">
-                  <div id="userProfile" class="user-profile" style="display: none;">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Usuário</span>
-                  </div>
-                </div>
-
-                <div class="nav-separator"></div>
-
                 <!-- Grupo: Navegação -->
                 <div class="nav-group">
-                  <a href="dashboard.html" class="nav-btn">
-                    <i class="fas fa-tasks"></i> CRM
-                  </a>
                   <a href="indicadores.html" class="nav-btn">
                     <i class="fas fa-users"></i> Indicadores
                   </a>
@@ -1925,22 +1932,13 @@
               </button>
             </div>
 
-            <!-- Perfil do Usuário -->
-            <div class="mobile-menu-section">
-              <div id="mobileUserProfile" class="user-profile" style="display: none; width: 100%; justify-content: flex-start; margin-bottom: 1rem;">
-                <i class="fas fa-user-circle"></i>
-                <span>Usuário</span>
-              </div>
-            </div>
+            <!-- Perfil do Usuário (removido: perfil fica no topo) -->
+            <div class="mobile-menu-section"></div>
 
             <!-- Navegação -->
             <div class="mobile-menu-section">
               <div class="mobile-menu-section-title">Navegação</div>
               <div class="mobile-menu-items">
-                <a href="dashboard.html" class="mobile-menu-item">
-                  <i class="fas fa-tasks"></i>
-                  <span>CRM</span>
-                </a>
                 <a href="indicadores.html" class="mobile-menu-item">
                   <i class="fas fa-users"></i>
                   <span>Indicadores</span>
@@ -1993,22 +1991,13 @@
               </button>
             </div>
 
-            <!-- Perfil do Usuário -->
-            <div class="mobile-menu-section">
-              <div id="mobileUserProfile" class="user-profile" style="display: none; width: 100%; justify-content: flex-start; margin-bottom: 1rem;">
-                <i class="fas fa-user-circle"></i>
-                <span>Usuário</span>
-              </div>
-            </div>
+            <!-- Perfil do Usuário (removido: perfil fica no topo) -->
+            <div class="mobile-menu-section"></div>
 
             <!-- Navegação -->
             <div class="mobile-menu-section">
               <div class="mobile-menu-section-title">Navegação</div>
               <div class="mobile-menu-items">
-                <a href="dashboard.html" class="mobile-menu-item">
-                  <i class="fas fa-tasks"></i>
-                  <span>CRM</span>
-                </a>
                 <a href="indicadores.html" class="mobile-menu-item">
                   <i class="fas fa-users"></i>
                   <span>Indicadores</span>
