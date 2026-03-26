@@ -108,6 +108,11 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       }
 
+      .nav-btn.dash-view-tab-active {
+        background: rgba(166, 255, 0, 0.22);
+        border-color: rgba(166, 255, 0, 0.45);
+      }
+
       .user-profile {
         background: rgba(255, 255, 255, 0.2);
         color: var(--color-white);
@@ -1056,7 +1061,7 @@
           </div>
           <div class="filter-group">
             <label class="filter-label">
-              <i class="fas fa-search"></i> Buscar Promotor
+              <i class="fas fa-search"></i> <span id="searchFilterLabel">Buscar</span>
             </label>
             <input type="text" id="searchFilter" class="filter-input" placeholder="Nome do promotor" oninput="applyFilters()" />
           </div>
@@ -1153,6 +1158,16 @@
       <div id="error" class="error" style="display: none;"></div>
 
       <div id="dashboardContent" style="display: none;">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center;">
+          <button type="button" id="dashTabPromotor" class="nav-btn" onclick="setDashboardPromotoresView('promotor')" style="font-size: 0.9rem;">
+            <i class="fas fa-user-tie"></i> Por promotor (campo)
+          </button>
+          <button type="button" id="dashTabTelevendas" class="nav-btn" onclick="setDashboardPromotoresView('televendas')" style="font-size: 0.9rem;">
+            <i class="fas fa-headset"></i> Por televendas (GHL)
+          </button>
+        </div>
+        <p id="dashPromotoresViewHint" style="font-size: 0.85rem; opacity: 0.85; margin: 0 0 1.25rem; color: var(--color-dark); max-width: 52rem;"></p>
+
         <!-- Cards de Métricas Principais -->
         <div class="stats-row">
           <div class="stat-card">
@@ -1161,7 +1176,7 @@
                 <i class="fas fa-users stat-icon"></i>
               </div>
               <div class="stat-info">
-                <p class="stat-label">Total de Promotores</p>
+                <p class="stat-label" id="statLabelPrincipal">Total de Promotores</p>
                 <p class="stat-value" id="totalPromotores">0</p>
               </div>
             </div>
@@ -1221,7 +1236,7 @@
                 <canvas id="chartStatus" style="display: block; box-sizing: border-box; height: 243px; width: 243px;" height="486" width="486"></canvas>
               </div>
               <div class="chart-card">
-                <h3 class="chart-title">
+                <h3 class="chart-title" id="chartComparativoTitle">
                   <i class="fas fa-chart-bar"></i>
                   Comparativo de Promotores
                 </h3>
@@ -1240,7 +1255,7 @@
           <!-- Coluna Direita: Ranking -->
           <div class="ranking-column">
             <div class="ranking-section">
-              <h2 class="section-title">
+              <h2 class="section-title" id="rankingSectionTitle">
                 <i class="fas fa-trophy"></i>
                 Ranking de Promotores
               </h2>

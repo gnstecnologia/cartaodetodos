@@ -205,6 +205,286 @@ function normalizeStatus(value) {
   return value;
 }
 
+/** Extrai nome do promotor de payloads GHL (customData / raiz / campos com espaço no nome). */
+function extractPromotorNomeFromGhlPayload(payload) {
+  const p = payload || {};
+  const c = p.customData || p.custom_data || {};
+  const raw =
+    c.promotorNome ??
+    c.promotor_nome ??
+    c.promotor ??
+    c['Nome Promotor'] ??
+    p.promotorNome ??
+    p.promotorName ??
+    p.promotor ??
+    p['Nome Promotor'] ??
+    p['Promotor'];
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return s || null;
+}
+
+/** GHL envia contact_id (snake_case) no workflow de indicação. */
+function extractGhlContactIdFromPayload(payload) {
+  const p = payload || {};
+  if (p.contact_id != null && String(p.contact_id).trim()) return String(p.contact_id).trim();
+  if (p.contactId != null && String(p.contactId).trim()) return String(p.contactId).trim();
+  if (p.contact?.id != null && String(p.contact.id).trim()) return String(p.contact.id).trim();
+  if (p.data?.contactId != null && String(p.data.contactId).trim()) return String(p.data.contactId).trim();
+  return null;
+}
+
+/** Responsável no ganho: owner (pipeline) ou user do payload; fallback userName/assignedTo. */
+function extractGhlAtendenteFromPayload(payload) {
+  const p = payload || {};
+  const owner = p.owner != null ? String(p.owner).trim() : '';
+  if (owner) return owner;
+  const u = p.user;
+  if (u && (u.firstName || u.lastName)) {
+    const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+    if (name) return name;
+  }
+  if (p.userName != null && String(p.userName).trim()) return String(p.userName).trim();
+  if (p.assignedTo != null && String(p.assignedTo).trim()) return String(p.assignedTo).trim();
+  if (p.data?.assignedTo != null && String(p.data.assignedTo).trim()) return String(p.data.assignedTo).trim();
+  return null;
+}
+
+/** Código/id do indicador: ID Indicador (GHL) ou customData.indicatorCode etc. */
+function extractIndicadorCodeFromGhlPayload(payload) {
+  const p = payload || {};
+  const c = p.customData || p.custom_data || {};
+  const candidates = [
+    p['ID Indicador'],
+    p['Id Indicador'],
+    p.id_indicador,
+    c.indicatorCode,
+    c.codigoIndicacao,
+    c.codigo_indicacao,
+    p.indicatorCode,
+  ];
+  for (const v of candidates) {
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return null;
+}
+
+function normalizeWebhookPhoneToE164(raw) {
+  if (raw == null || String(raw).trim() === '') return null;
+  const parsed = parseBrazilPhoneToE164(String(raw).trim());
+  return parsed.ok ? parsed.e164 : null;
+}
+
+/** Resolve referral do ganho: contato GHL → código indicador → nome indicador + telefone → só telefone. */
+async function findReferralForConversionWebhook(db, payload) {
+  const contactId = extractGhlContactIdFromPayload(payload);
+  let referral = null;
+
+  if (contactId) {
+    const { data: refMap } = await db
+      .from('ghl_contacts')
+      .select('referral_id')
+      .eq('ghl_contact_id', String(contactId))
+      .maybeSingle();
+    if (refMap?.referral_id) {
+      const { data: refData } = await db.from('referrals').select('*').eq('id', refMap.referral_id).maybeSingle();
+      referral = refData || null;
+    }
+  }
+
+  const phoneE164 = normalizeWebhookPhoneToE164(payload.phone || payload.phoneNumber);
+  const indicadorCode = extractIndicadorCodeFromGhlPayload(payload);
+  const nomeIndicador =
+    (payload['Nome Indicador'] && String(payload['Nome Indicador']).trim()) ||
+    (payload['nome_indicador'] && String(payload['nome_indicador']).trim()) ||
+    null;
+
+  async function latestReferral(qb) {
+    const { data } = await qb.order('created_at', { ascending: false }).limit(1).maybeSingle();
+    return data || null;
+  }
+
+  if (!referral && indicadorCode) {
+    let qb = db.from('referrals').select('*').eq('codigo_indicacao', String(indicadorCode));
+    if (phoneE164) qb = qb.eq('telefone', phoneE164);
+    referral = await latestReferral(qb);
+  }
+
+  if (!referral && nomeIndicador) {
+    const { data: indicators } = await db.from('indicators').select('id,code,nome').limit(500);
+    const hit = (indicators || []).find(
+      (i) => (i.nome || '').trim().toLowerCase() === nomeIndicador.toLowerCase(),
+    );
+    if (hit) {
+      let qb = db.from('referrals').select('*').eq('indicator_id', hit.id);
+      if (phoneE164) qb = qb.eq('telefone', phoneE164);
+      referral = await latestReferral(qb);
+    }
+  }
+
+  if (!referral && phoneE164) {
+    referral = await latestReferral(db.from('referrals').select('*').eq('telefone', phoneE164));
+  }
+
+  return referral;
+}
+
+function buildClosingRanking(closedList, field, emptyLabel) {
+  const total = closedList.length;
+  const counts = new Map();
+  for (const r of closedList) {
+    const v = r[field];
+    const nome = (v && String(v).trim()) ? String(v).trim() : emptyLabel;
+    counts.set(nome, (counts.get(nome) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([nome, fechados]) => ({
+      nome,
+      fechados,
+      percentualSobreFechamentosNoPeriodo:
+        total > 0 ? Number(((fechados / total) * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.fechados - a.fechados);
+}
+
+const VALOR_PLANO_PROMOTOR = 59.99;
+
+function aggregateReferralsByDimension(referrals, indicatorById, dimension) {
+  const emptyLabel = dimension === 'promotor' ? 'Sem promotor cadastrado' : 'Sem responsável (GHL)';
+  const grouped = new Map();
+
+  for (const lead of referrals || []) {
+    const keyRaw =
+      dimension === 'promotor'
+        ? (lead.promotor_nome || '').trim()
+        : (lead.responsavel_nome || '').trim();
+    const key = keyRaw || emptyLabel;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        nome: key,
+        totalLeads: 0,
+        leadsPorStatus: {
+          'Nova Indicação': 0,
+          'Em Contato': 0,
+          'Em Negociação': 0,
+          Fechado: 0,
+          Perdido: 0,
+        },
+        indicadores: new Set(),
+        promotoresAssociados: new Set(),
+        televendasAssociados: new Set(),
+        leads: [],
+      });
+    }
+
+    const bucket = grouped.get(key);
+    const status = normalizeStatus(lead.status);
+    bucket.totalLeads += 1;
+    if (bucket.leadsPorStatus[status] !== undefined) bucket.leadsPorStatus[status] += 1;
+
+    const indicator = lead.indicator_id ? indicatorById.get(lead.indicator_id) : null;
+    if (indicator?.nome) bucket.indicadores.add(indicator.nome);
+
+    const prom = (lead.promotor_nome || '').trim();
+    if (prom) bucket.promotoresAssociados.add(prom);
+    const resp = (lead.responsavel_nome || '').trim();
+    if (resp) bucket.televendasAssociados.add(resp);
+
+    bucket.leads.push({
+      id: lead.id,
+      nome: lead.nome,
+      telefone: lead.telefone,
+      status,
+      dataHora: lead.data_hora || formatBrazilianDateTime(lead.created_at),
+      indicadorNome: indicator?.nome || lead.codigo_indicacao || '',
+      promotorNome: prom,
+      televendasNome: resp,
+    });
+  }
+
+  return [...grouped.values()]
+    .map((p) => {
+      const leadsFechados = p.leadsPorStatus.Fechado || 0;
+      const valorGerado = Number((leadsFechados * VALOR_PLANO_PROMOTOR).toFixed(2));
+      const taxaConversao = p.totalLeads
+        ? Number(((leadsFechados / p.totalLeads) * 100).toFixed(1))
+        : 0;
+      const taxaPerda = p.totalLeads
+        ? Number((((p.leadsPorStatus.Perdido || 0) / p.totalLeads) * 100).toFixed(1))
+        : 0;
+      const leadsContato =
+        (p.leadsPorStatus['Em Contato'] || 0) + (p.leadsPorStatus['Em Negociação'] || 0);
+      return {
+        nome: p.nome,
+        totalLeads: p.totalLeads,
+        leadsPorStatus: p.leadsPorStatus,
+        leadsFechados,
+        leadsContato,
+        leadsPerdidos: p.leadsPorStatus.Perdido || 0,
+        valorGerado,
+        taxaConversao,
+        taxaPerda,
+        indicadores: [...p.indicadores].sort(),
+        promotoresAssociados: [...p.promotoresAssociados].sort(),
+        televendasAssociados: [...p.televendasAssociados].sort(),
+        numIndicadores: p.indicadores.size,
+        leads: p.leads,
+      };
+    })
+    .sort((a, b) => b.valorGerado - a.valorGerado || b.totalLeads - a.totalLeads);
+}
+
+/** Métricas: cohort por data de entrada vs fechamentos por fechado_em (ganho/webhook). */
+function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechamentoPeriod) {
+  const ind = referralsCreatedInFilter || [];
+  const totalIndicadosNoPeriodo = ind.length;
+  let fechadosEntreIndicadosDoPeriodo = 0;
+  let perdidosEntreIndicadosDoPeriodo = 0;
+  for (const r of ind) {
+    const s = normalizeStatus(r.status);
+    if (s === 'Fechado') fechadosEntreIndicadosDoPeriodo += 1;
+    else if (s === 'Perdido') perdidosEntreIndicadosDoPeriodo += 1;
+  }
+  const emAndamentoEntreIndicadosDoPeriodo = Math.max(
+    0,
+    totalIndicadosNoPeriodo - fechadosEntreIndicadosDoPeriodo - perdidosEntreIndicadosDoPeriodo,
+  );
+  const taxaFechamentoSobreIndicadosPercent =
+    totalIndicadosNoPeriodo > 0
+      ? Number(((fechadosEntreIndicadosDoPeriodo / totalIndicadosNoPeriodo) * 100).toFixed(1))
+      : 0;
+
+  const closedList = (closedRowsForFechamentoPeriod || []).filter(
+    (r) => normalizeStatus(r.status) === 'Fechado',
+  );
+  const fechamentosPorDataGanhoNoPeriodo = closedList.length;
+
+  const televendasRanking = buildClosingRanking(closedList, 'responsavel_nome', 'Não informado (GHL)');
+  const promotoresRanking = buildClosingRanking(closedList, 'promotor_nome', 'Sem promotor no lead');
+
+  return {
+    totalIndicadosNoPeriodo,
+    fechadosEntreIndicadosDoPeriodo,
+    perdidosEntreIndicadosDoPeriodo,
+    emAndamentoEntreIndicadosDoPeriodo,
+    taxaFechamentoSobreIndicadosPercent,
+    fechamentosPorDataGanhoNoPeriodo,
+    televendasRanking,
+    promotoresRanking,
+    legendas: {
+      cohortEntrada:
+        'Leads cuja data de criação está no filtro. “Fechados/Perdidos/Em andamento” = status atual desses leads.',
+      fechamentosDataGanho:
+        'Vendas ganhas cuja data de fechamento (campo fechado_em) está no filtro — alinhado ao webhook GHL e ao mês do ganho.',
+      televendas:
+        'Agrupado por responsável informado pelo GHL no ganho (responsavel_nome). Sem nome aparece como “Não informado”.',
+      promotores:
+        'Agrupado pelo campo promotor do lead (promotor_nome), preenchido na captura ou no payload do webhook. Leads antigos podem aparecer como “Sem promotor”.',
+    },
+  };
+}
+
 function randomCode(size = 8) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   const bytes = crypto.randomBytes(size);
@@ -293,7 +573,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 
 app.post('/api/leads', async (req, res) => {
   try {
-    const { nome, telefone, codigoIndicacao } = req.body;
+    const { nome, telefone, codigoIndicacao, promotorNome } = req.body;
 
     if (!nome || !telefone) {
       return res.status(400).json({ ok: false, message: 'Nome e telefone são obrigatórios' });
@@ -318,6 +598,9 @@ app.post('/api/leads', async (req, res) => {
     const createdAt = getSaoPauloISODate();
     const initialLog = [{ status: 'Nova Indicação', data: createdAt, origem: 'sistema' }];
 
+    const promotorTrim =
+      promotorNome != null && String(promotorNome).trim() ? String(promotorNome).trim() : null;
+
     const { data: referral, error } = await supabase
       .from('referrals')
       .insert({
@@ -325,6 +608,7 @@ app.post('/api/leads', async (req, res) => {
         telefone: telefoneE164,
         indicator_id: indicator?.id || null,
         codigo_indicacao: indicator?.code || String(codigoIndicacao || '').trim() || null,
+        promotor_nome: promotorTrim,
         status: 'Nova Indicação',
         origem: 'landing-cartao-de-todos',
         data_hora: formatBrazilianDateTime(createdAt),
@@ -378,7 +662,9 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
     let query = db
       .from('referrals')
-      .select('id,nome,telefone,codigo_indicacao,origem,status,data_hora,data_criacao_iso,log_status,indicator_id,created_at');
+      .select(
+        'id,nome,telefone,codigo_indicacao,origem,status,data_hora,data_criacao_iso,log_status,indicator_id,created_at,fechado_em,perdido_em,responsavel_nome,promotor_nome',
+      );
 
     if (dataInicio) {
       query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
@@ -389,6 +675,21 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
     const { data: referrals, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
+
+    let closedQuery = db
+      .from('referrals')
+      .select('id,status,responsavel_nome,promotor_nome,fechado_em')
+      .not('fechado_em', 'is', null);
+    if (dataInicio) {
+      closedQuery = closedQuery.gte('fechado_em', `${dataInicio}T00:00:00.000Z`);
+    }
+    if (dataFim) {
+      closedQuery = closedQuery.lte('fechado_em', `${dataFim}T23:59:59.999Z`);
+    }
+    const { data: closedRows, error: closedErr } = await closedQuery;
+    if (closedErr) throw closedErr;
+
+    const metricas = buildDashboardMetricas(referrals || [], closedRows || []);
 
     const indicators = {};
     const { data: indicatorsMapRows } = await db.from('indicators').select('code,nome').eq('ativo', true);
@@ -417,6 +718,10 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       status: normalizeStatus(row.status),
       dataHora: row.data_hora || formatBrazilianDateTime(row.data_criacao_iso || row.created_at),
       logStatus: Array.isArray(row.log_status) ? row.log_status : [],
+      responsavelNome: row.responsavel_nome || '',
+      promotorNome: row.promotor_nome || '',
+      fechadoEm: row.fechado_em || null,
+      perdidoEm: row.perdido_em || null,
     }));
 
     res.json({
@@ -424,6 +729,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       indicacoes,
       indicadores: indicators,
       indicadoresList,
+      metricas,
     });
   } catch (error) {
     console.error('Erro ao buscar dashboard:', error);
@@ -438,7 +744,9 @@ app.get('/api/promotores', requireAuth, async (req, res) => {
 
     let query = db
       .from('referrals')
-      .select('id,nome,telefone,status,data_hora,codigo_indicacao,responsavel_nome,indicator_id,created_at');
+      .select(
+        'id,nome,telefone,status,data_hora,codigo_indicacao,responsavel_nome,promotor_nome,indicator_id,created_at',
+      );
 
     if (dataInicio) query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
     if (dataFim) query = query.lte('created_at', `${dataFim}T23:59:59.999Z`);
@@ -449,68 +757,21 @@ app.get('/api/promotores', requireAuth, async (req, res) => {
     const { data: indicatorsData } = await db.from('indicators').select('id,nome,code');
     const indicatorById = new Map((indicatorsData || []).map((i) => [i.id, i]));
 
-    const VALOR_PLANO = 59.99;
-    const grouped = new Map();
+    const promotores = aggregateReferralsByDimension(referrals, indicatorById, 'promotor');
+    const televendas = aggregateReferralsByDimension(referrals, indicatorById, 'televendas');
 
-    (referrals || []).forEach((lead) => {
-      const key = (lead.responsavel_nome || 'Sem atendente').trim();
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          nome: key,
-          totalLeads: 0,
-          leadsPorStatus: {
-            'Nova Indicação': 0,
-            'Em Contato': 0,
-            'Em Negociação': 0,
-            Fechado: 0,
-            Perdido: 0,
-          },
-          indicadores: new Set(),
-          leads: [],
-        });
-      }
-
-      const bucket = grouped.get(key);
-      const status = normalizeStatus(lead.status);
-      bucket.totalLeads += 1;
-      if (bucket.leadsPorStatus[status] !== undefined) bucket.leadsPorStatus[status] += 1;
-
-      const indicator = lead.indicator_id ? indicatorById.get(lead.indicator_id) : null;
-      if (indicator?.nome) bucket.indicadores.add(indicator.nome);
-
-      bucket.leads.push({
-        id: lead.id,
-        nome: lead.nome,
-        telefone: lead.telefone,
-        status,
-        dataHora: lead.data_hora || formatBrazilianDateTime(lead.created_at),
-        promotor: indicator?.nome || lead.codigo_indicacao || '',
-        vendedor: key,
-      });
+    res.json({
+      ok: true,
+      promotores,
+      televendas,
+      valorPlano: VALOR_PLANO_PROMOTOR,
+      legendas: {
+        promotores:
+          'Agrupado pelo campo promotor_nome do lead (URL do formulário ou custom fields do GHL no webhook de ganho).',
+        televendas:
+          'Agrupado por responsavel_nome (quem consta no GHL ao fechar / webhook de conversão).',
+      },
     });
-
-    const promotores = [...grouped.values()].map((p) => {
-      const leadsFechados = p.leadsPorStatus.Fechado || 0;
-      const valorGerado = Number((leadsFechados * VALOR_PLANO).toFixed(2));
-      const taxaConversao = p.totalLeads ? Number(((leadsFechados / p.totalLeads) * 100).toFixed(1)) : 0;
-      const taxaPerda = p.totalLeads ? Number((((p.leadsPorStatus.Perdido || 0) / p.totalLeads) * 100).toFixed(1)) : 0;
-
-      return {
-        nome: p.nome,
-        totalLeads: p.totalLeads,
-        leadsPorStatus: p.leadsPorStatus,
-        leadsFechados,
-        valorGerado,
-        taxaConversao,
-        taxaPerda,
-        indicadores: [...p.indicadores].sort(),
-        leads: p.leads,
-      };
-    });
-
-    promotores.sort((a, b) => b.valorGerado - a.valorGerado || b.totalLeads - a.totalLeads);
-
-    res.json({ ok: true, promotores, valorPlano: VALOR_PLANO });
   } catch (error) {
     console.error('Erro ao buscar promotores:', error);
     res.status(500).json({ ok: false, message: `Erro ao buscar dados: ${error.message}` });
@@ -797,34 +1058,8 @@ app.post('/webhooks/ghl/conversion', async (req, res) => {
 
     if (eventError) throw eventError;
 
-    const contactId = payload.contactId || payload.contact?.id || payload.data?.contactId || null;
-    const atendente = payload.userName || payload.assignedTo || payload.data?.assignedTo || null;
-    const indicadorCode = payload.customData?.indicatorCode || payload.indicatorCode || null;
-
-    let referral = null;
-    if (contactId) {
-      const { data: refMap } = await supabase
-        .from('ghl_contacts')
-        .select('referral_id')
-        .eq('ghl_contact_id', String(contactId))
-        .maybeSingle();
-
-      if (refMap?.referral_id) {
-        const { data: refData } = await supabase.from('referrals').select('*').eq('id', refMap.referral_id).maybeSingle();
-        referral = refData || null;
-      }
-    }
-
-    if (!referral && indicadorCode) {
-      const { data: candidate } = await supabase
-        .from('referrals')
-        .select('*')
-        .eq('codigo_indicacao', String(indicadorCode))
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      referral = candidate || null;
-    }
+    const atendente = extractGhlAtendenteFromPayload(payload);
+    const referral = await findReferralForConversionWebhook(supabase, payload);
 
     if (referral) {
       await supabase.from('conversions').insert({
@@ -839,12 +1074,19 @@ app.post('/webhooks/ghl/conversion', async (req, res) => {
       const now = getSaoPauloISODate();
       timeline.push({ status: 'Fechado', data: now, origem: 'webhook-ghl' });
 
-      await supabase.from('referrals').update({
+      const promotorWebhook = extractPromotorNomeFromGhlPayload(payload);
+      const promotorFinal =
+        promotorWebhook || (referral.promotor_nome && String(referral.promotor_nome).trim()) || null;
+
+      const updatePayload = {
         status: 'Fechado',
-        responsavel_nome: atendente,
         fechado_em: now,
         log_status: timeline,
-      }).eq('id', referral.id);
+        promotor_nome: promotorFinal,
+      };
+      if (atendente) updatePayload.responsavel_nome = atendente;
+
+      await supabase.from('referrals').update(updatePayload).eq('id', referral.id);
 
       await writeAuditLog('conversion_received', 'referral', referral.id, { webhookEventId: eventRow.id }, 'success');
     }

@@ -1922,6 +1922,129 @@
               </div>
             </div>
 
+            <p id="hintCohortFiltro" class="metricas-hint" style="font-size: 0.88rem; color: rgba(15, 31, 19, 0.75); margin: 0 0 1rem; line-height: 1.45;"></p>
+
+            <div class="stats-row">
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.15s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-check-circle stat-icon" style="color: #0f8a3c;"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Fechados (entre indicados do período)</p>
+                    <p class="stat-value" id="metricFechadosCohort">0</p>
+                    <p class="stat-trend" style="font-size: 0.78rem; opacity: 0.75;">Status atual dos leads que entraram no filtro</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.18s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-times-circle stat-icon" style="color: #b83232;"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Perdidos</p>
+                    <p class="stat-value" id="metricPerdidosCohort">0</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.21s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-hourglass-half stat-icon" style="color: #5a6e78;"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Em andamento</p>
+                    <p class="stat-value" id="metricAndamentoCohort">0</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.24s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-percentage stat-icon"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Taxa fechamento</p>
+                    <p class="stat-value" id="metricTaxaFechamento">0%</p>
+                    <p class="stat-trend" style="font-size: 0.78rem; opacity: 0.75;">Fechados ÷ indicados do período</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card animate-fade-in" style="animation-delay: 0.27s;">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper">
+                    <i class="fas fa-trophy stat-icon" style="color: #c9a227;"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Ganhos no período (data do ganho)</p>
+                    <p class="stat-value" id="metricFechamentosDataGanho">0</p>
+                    <p class="stat-trend" style="font-size: 0.78rem; opacity: 0.75;">Data registrada ao marcar ganho (webhook GHL)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p id="legendaCohort" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 0.5rem;"></p>
+            <p id="legendaDataGanho" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 1.25rem;"></p>
+
+            <div class="dashboard-main-grid" style="margin-bottom: 2rem;">
+              <div class="charts-column">
+                <div class="chart-container animate-slide-up" style="animation-delay: 0.32s;">
+                  <div class="chart-header">
+                    <div class="chart-title-group">
+                      <i class="fas fa-chart-pie chart-title-icon"></i>
+                      <div>
+                        <h3 class="chart-title">Indicados do período — status</h3>
+                        <span class="chart-subtitle">Mesma base do filtro (data de entrada)</span>
+                      </div>
+                    </div>
+                  </div>
+                  <canvas id="chartStatusFunil"></canvas>
+                </div>
+              </div>
+              <div class="ranking-column">
+                <div class="ranking-section animate-slide-up" style="animation-delay: 0.34s;">
+                  <div class="section-title-group">
+                    <i class="fas fa-headset section-title-icon"></i>
+                    <h2 class="section-title">Televendas — ganhos no período</h2>
+                  </div>
+                  <p id="legendaTelevendas" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 1rem;"></p>
+                  <div class="table-wrapper">
+                    <table class="ranking-table">
+                      <thead>
+                        <tr>
+                          <th>Responsável (GHL)</th>
+                          <th>Ganhos</th>
+                          <th>% do período</th>
+                        </tr>
+                      </thead>
+                      <tbody id="televendasTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="ranking-section animate-slide-up" style="animation-delay: 0.36s; margin-top: 1.5rem;">
+                  <div class="section-title-group">
+                    <i class="fas fa-user-tie section-title-icon"></i>
+                    <h2 class="section-title">Promotores — ganhos no período</h2>
+                  </div>
+                  <p id="legendaPromotoresRanking" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 1rem;"></p>
+                  <div class="table-wrapper">
+                    <table class="ranking-table">
+                      <thead>
+                        <tr>
+                          <th>Promotor (campo no lead)</th>
+                          <th>Ganhos</th>
+                          <th>% do período</th>
+                        </tr>
+                      </thead>
+                      <tbody id="promotoresRankingTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Layout Horizontal: Gráficos e Ranking lado a lado -->
             <div class="dashboard-main-grid">
               <!-- Coluna Esquerda: Gráficos -->

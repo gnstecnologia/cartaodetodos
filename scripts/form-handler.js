@@ -70,10 +70,15 @@ document.addEventListener('DOMContentLoaded', () => {
       codigoInput.value = codigoExtraido;
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const promotorDaUrl =
+      (urlParams.get('promotorNome') || urlParams.get('promotor') || '').trim() || '';
+
     const formData = {
       nome: nome,
       telefone: phone.e164,
       codigoIndicacao: codigoInput ? codigoInput.value.trim() : '',
+      promotorNome: promotorDaUrl,
     };
 
     toggleSubmitState(true);

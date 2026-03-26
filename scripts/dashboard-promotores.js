@@ -5,6 +5,9 @@ const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 const PROMOTORES_ENDPOINT = `${API_BASE_URL}/api/promotores`;
 
 // Variáveis globais
+let rawPromotoresPorCampo = [];
+let rawTelevendasPorGhl = [];
+let promotoresViewMode = 'promotor';
 let allPromotoresData = [];
 let filteredPromotoresData = [];
 let chartTimeline = null;
@@ -68,8 +71,8 @@ async function loadDashboard() {
     if (dataFim) params.append('dataFim', dataFim);
     if (params.toString()) url += '?' + params.toString();
 
-    const response = await fetch(url);
-    
+    const response = await fetch(url, { credentials: 'include' });
+
     if (!response.ok) {
       throw new Error('Erro ao buscar dados');
     }
@@ -80,7 +83,10 @@ async function loadDashboard() {
       throw new Error(data.message || 'Erro ao processar dados');
     }
 
-    allPromotoresData = data.promotores || [];
+    rawPromotoresPorCampo = data.promotores || [];
+    rawTelevendasPorGhl = data.televendas || [];
+    refreshPromotoresActiveDataset();
+    syncDashboardPromotoresViewUI();
     applyFilters();
 
     loadingEl.style.display = 'none';
@@ -93,14 +99,78 @@ async function loadDashboard() {
   }
 }
 
+function refreshPromotoresActiveDataset() {
+  allPromotoresData =
+    promotoresViewMode === 'televendas' ? rawTelevendasPorGhl : rawPromotoresPorCampo;
+}
+
+function syncDashboardPromotoresViewUI() {
+  const tabP = document.getElementById('dashTabPromotor');
+  const tabT = document.getElementById('dashTabTelevendas');
+  if (tabP) tabP.classList.toggle('dash-view-tab-active', promotoresViewMode === 'promotor');
+  if (tabT) tabT.classList.toggle('dash-view-tab-active', promotoresViewMode === 'televendas');
+
+  const hint = document.getElementById('dashPromotoresViewHint');
+  if (hint) {
+    hint.textContent =
+      promotoresViewMode === 'televendas'
+        ? 'Agrupamento por responsável no GHL ao fechar o lead (mesma base da tabela de televendas do dashboard principal).'
+        : 'Agrupamento pelo campo promotor do lead (URL ?promotor= ou custom fields no webhook de ganho). Indicador continua sendo quem trouxe o código.';
+  }
+
+  const statLbl = document.getElementById('statLabelPrincipal');
+  if (statLbl) {
+    statLbl.textContent =
+      promotoresViewMode === 'televendas' ? 'Responsáveis (GHL)' : 'Promotores (campo)';
+  }
+
+  const rankTitle = document.getElementById('rankingSectionTitle');
+  if (rankTitle) {
+    rankTitle.innerHTML =
+      promotoresViewMode === 'televendas'
+        ? '<i class="fas fa-headset"></i> Ranking — Televendas (GHL)'
+        : '<i class="fas fa-trophy"></i> Ranking — Promotores (campo)';
+  }
+
+  const cmpTitle = document.getElementById('chartComparativoTitle');
+  if (cmpTitle) {
+    cmpTitle.innerHTML =
+      promotoresViewMode === 'televendas'
+        ? '<i class="fas fa-chart-bar"></i> Comparativo — Televendas'
+        : '<i class="fas fa-chart-bar"></i> Comparativo — Promotores';
+  }
+
+  const searchLbl = document.getElementById('searchFilterLabel');
+  if (searchLbl) {
+    searchLbl.textContent =
+      promotoresViewMode === 'televendas' ? 'Buscar responsável (GHL)' : 'Buscar promotor';
+  }
+  const searchInp = document.getElementById('searchFilter');
+  if (searchInp) {
+    searchInp.placeholder =
+      promotoresViewMode === 'televendas'
+        ? 'Nome do responsável no GHL'
+        : 'Nome do promotor';
+  }
+}
+
+function setDashboardPromotoresView(mode) {
+  const next = mode === 'televendas' ? 'televendas' : 'promotor';
+  if (promotoresViewMode === next) return;
+  promotoresViewMode = next;
+  refreshPromotoresActiveDataset();
+  syncDashboardPromotoresViewUI();
+  applyFilters();
+}
+
 // Aplica filtros
 function applyFilters() {
   const searchTerm = (document.getElementById('searchFilter')?.value || '').toLowerCase().trim();
   const sortBy = document.getElementById('sortFilter')?.value || 'valor';
 
-  filteredPromotoresData = allPromotoresData.filter(promotor => {
+  filteredPromotoresData = allPromotoresData.filter((promotor) => {
     if (searchTerm) {
-      const nomeMatch = promotor.nome.toLowerCase().includes(searchTerm);
+      const nomeMatch = (promotor.nome || '').toLowerCase().includes(searchTerm);
       if (!nomeMatch) return false;
     }
     return true;
@@ -174,7 +244,8 @@ function exportPromotoresData(format) {
   // Gera nome do arquivo com data
   const agora = new Date();
   const dataStr = agora.toISOString().split('T')[0].replace(/-/g, '');
-  const filename = `dashboard_promotores_${dataStr}`;
+  const suffix = promotoresViewMode === 'televendas' ? 'televendas_ghl' : 'promotores_campo';
+  const filename = `dashboard_${suffix}_${dataStr}`;
 
   // Exporta conforme formato
   if (format === 'csv') {
@@ -498,7 +569,7 @@ function updateRanking() {
           const rank = index + 1;
           const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
           return `
-            <tr onclick="viewPromotorDetalhes('${encodeURIComponent(promotor.nome)}')" style="cursor: pointer;">
+            <tr onclick="viewPromotorDetalhes('${encodeURIComponent(promotor.nome)}','${promotoresViewMode}')" style="cursor: pointer;">
               <td style="display: flex; justify-content: center; align-items: center;">
                 <span class="rank-badge ${rankClass}">${rank}</span>
               </td>
@@ -510,6 +581,18 @@ function updateRanking() {
                   <div style="font-size: 0.75rem; color: rgba(15, 31, 19, 0.6); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
                     <i class="fas fa-users"></i> 
                     <span>${promotor.indicadores.length} indicador${promotor.indicadores.length > 1 ? 'es' : ''}</span>
+                  </div>
+                ` : ''}
+                ${promotoresViewMode === 'promotor' && promotor.televendasAssociados && promotor.televendasAssociados.length > 0 ? `
+                  <div style="font-size: 0.72rem; color: rgba(15, 31, 19, 0.55); display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-headset"></i>
+                    <span>${promotor.televendasAssociados.length} televendas no período</span>
+                  </div>
+                ` : ''}
+                ${promotoresViewMode === 'televendas' && promotor.promotoresAssociados && promotor.promotoresAssociados.length > 0 ? `
+                  <div style="font-size: 0.72rem; color: rgba(15, 31, 19, 0.55); display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-user-tie"></i>
+                    <span>${promotor.promotoresAssociados.length} promotor(es) nos leads</span>
                   </div>
                 ` : ''}
               </td>
@@ -541,13 +624,15 @@ function updateRanking() {
   rankingEl.innerHTML = rankingHTML;
 }
 
-// Visualiza detalhes do promotor
-function viewPromotorDetalhes(promotorNome) {
-  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(promotorNome)}`;
+// Visualiza detalhes do promotor ou da linha de televendas (mesma página, agrupamento distinto)
+function viewPromotorDetalhes(promotorNome, tipo) {
+  const t = tipo === 'televendas' ? 'televendas' : 'promotor';
+  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(promotorNome)}&tipo=${t}`;
 }
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
+  syncDashboardPromotoresViewUI();
   if (await checkAuth()) {
     loadDashboard();
     setTimeout(initializeExportButtons, 500);

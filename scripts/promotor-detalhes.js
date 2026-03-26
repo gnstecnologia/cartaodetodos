@@ -93,22 +93,30 @@ async function loadPromotorData() {
   contentEl.style.display = 'none';
 
   try {
-    // Tenta buscar do sessionStorage primeiro
-    let stored = sessionStorage.getItem('promotorDetalhes');
-    
-    // Se não tiver no sessionStorage, busca da API usando parâmetro da URL
-    if (!stored) {
-      const params = new URLSearchParams(window.location.search);
-      const promotorNomeEncoded = params.get('promotor');
-      
-      if (!promotorNomeEncoded) {
-        throw new Error('Promotor não especificado na URL');
-      }
+    const params = new URLSearchParams(window.location.search);
+    const promotorNomeEncoded = params.get('promotor');
+    if (!promotorNomeEncoded) {
+      throw new Error('Nome não especificado na URL');
+    }
+    const promotorNome = decodeURIComponent(promotorNomeEncoded);
+    const tipo = params.get('tipo') === 'televendas' ? 'televendas' : 'promotor';
 
-      const promotorNome = decodeURIComponent(promotorNomeEncoded);
-      console.log('Buscando promotor:', promotorNome);
+    let storedParsed = null;
+    try {
+      const raw = sessionStorage.getItem('promotorDetalhes');
+      if (raw) storedParsed = JSON.parse(raw);
+    } catch {
+      storedParsed = null;
+    }
 
-      // Busca dados da API
+    const sessionMatches =
+      storedParsed &&
+      (storedParsed.nome || '').trim().toLowerCase() === promotorNome.trim().toLowerCase() &&
+      (storedParsed.agrupamento || 'promotor') === tipo;
+
+    if (sessionMatches) {
+      promotorData = storedParsed;
+    } else {
       const response = await fetch(`${API_BASE_URL}/api/promotores`, { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Erro ao buscar dados da API');
@@ -119,40 +127,36 @@ async function loadPromotorData() {
         throw new Error(data.message || 'Erro ao processar dados');
       }
 
-      console.log('Promotores recebidos da API:', data.promotores?.length || 0);
-      console.log('Nomes dos promotores:', data.promotores?.map(p => p.nome) || []);
-
-      // Encontra o promotor pelo nome (case-insensitive e trim)
-      const promotor = data.promotores?.find(p => {
-        const nomePromotor = (p.nome || '').trim();
-        const nomeBuscado = promotorNome.trim();
-        return nomePromotor.toLowerCase() === nomeBuscado.toLowerCase();
+      const list = tipo === 'televendas' ? data.televendas || [] : data.promotores || [];
+      const row = list.find((p) => {
+        const n = (p.nome || '').trim();
+        return n.toLowerCase() === promotorNome.trim().toLowerCase();
       });
 
-      if (!promotor) {
-        console.error('Promotor não encontrado. Nome buscado:', promotorNome);
-        console.error('Promotores disponíveis:', data.promotores?.map(p => p.nome) || []);
-        throw new Error(`Promotor "${promotorNome}" não encontrado`);
+      if (!row) {
+        throw new Error(
+          tipo === 'televendas'
+            ? `Responsável (GHL) "${promotorNome}" não encontrado neste período`
+            : `Promotor "${promotorNome}" não encontrado neste período`,
+        );
       }
 
-      console.log('Promotor encontrado:', promotor);
-
-      // Prepara dados no formato esperado
       promotorData = {
-        nome: promotor.nome,
-        leads: promotor.leads,
+        nome: row.nome,
+        agrupamento: tipo,
+        leads: row.leads,
         metricas: {
-          totalLeads: promotor.totalLeads,
-          leadsFechados: promotor.leadsFechados,
-          valorGerado: promotor.valorGerado,
-          taxaConversao: promotor.taxaConversao,
-          taxaPerda: promotor.taxaPerda,
-          leadsPorStatus: promotor.leadsPorStatus,
-          indicadores: promotor.indicadores
-        }
+          totalLeads: row.totalLeads,
+          leadsFechados: row.leadsFechados,
+          valorGerado: row.valorGerado,
+          taxaConversao: row.taxaConversao,
+          taxaPerda: row.taxaPerda,
+          leadsPorStatus: row.leadsPorStatus,
+          indicadores: row.indicadores,
+          promotoresAssociados: row.promotoresAssociados,
+          televendasAssociados: row.televendasAssociados,
+        },
       };
-    } else {
-      promotorData = JSON.parse(stored);
     }
 
     // Garante que cada lead tem um ID único
@@ -164,12 +168,15 @@ async function loadPromotorData() {
     });
     console.log('Leads carregados:', allLeads.length);
 
-    // Atualiza título
     const nomeEl = document.getElementById('promotorNome');
     if (nomeEl) {
+      const isTv = (promotorData.agrupamento || 'promotor') === 'televendas';
       nomeEl.innerHTML = `
-      <i class="fas fa-user-tie"></i>
+      <i class="fas ${isTv ? 'fa-headset' : 'fa-user-tie'}"></i>
       ${promotorData.nome}
+      <span style="display:block;font-size:0.45em;font-weight:600;opacity:0.85;margin-top:0.35rem;">
+        ${isTv ? 'Telesales — responsável no GHL' : 'Promotor — campo no lead'}
+      </span>
     `;
     } else {
       console.error('Elemento promotorNome não encontrado!');
@@ -199,8 +206,9 @@ function renderMetricas() {
   }
 
   const metricas = promotorData.metricas;
+  const agrupamento = promotorData.agrupamento || 'promotor';
   const metricasGrid = document.getElementById('metricasGrid');
-  
+
   if (!metricasGrid) {
     console.error('Elemento metricasGrid não encontrado!');
     return;
@@ -249,6 +257,24 @@ function renderMetricas() {
               Indicadores
             </div>
             <div class="metrica-value">${metricas.indicadores.length}</div>
+          </div>
+        ` : ''}
+        ${agrupamento === 'televendas' && metricas.promotoresAssociados && metricas.promotoresAssociados.length > 0 ? `
+          <div class="metrica-card">
+            <div class="metrica-label">
+              <i class="fas fa-user-tie"></i>
+              Promotores nos leads
+            </div>
+            <div class="metrica-value">${metricas.promotoresAssociados.length}</div>
+          </div>
+        ` : ''}
+        ${agrupamento === 'promotor' && metricas.televendasAssociados && metricas.televendasAssociados.length > 0 ? `
+          <div class="metrica-card">
+            <div class="metrica-label">
+              <i class="fas fa-headset"></i>
+              Televendas (GHL)
+            </div>
+            <div class="metrica-value">${metricas.televendasAssociados.length}</div>
           </div>
         ` : ''}
   `;
@@ -364,7 +390,9 @@ function renderLeads() {
     const telefone = lead.telefone || 'Sem telefone';
     const status = lead.status || 'Nova Indicação';
     const dataHora = lead.dataHora || '';
-    const vendedor = lead.vendedor || '';
+    const indicadorNome = lead.indicadorNome || '';
+    const promotorNomeLead = lead.promotorNome || '';
+    const televendasNome = lead.televendasNome || lead.vendedor || '';
     const statusClass = getStatusClass(status);
     
     // Usa ID do lead ou cria um identificador único baseado em nome e telefone
@@ -388,10 +416,22 @@ function renderLeads() {
               <span>${formatDate(dataHora)}</span>
             </div>
           ` : ''}
-          ${vendedor ? `
+          ${indicadorNome ? `
+            <div class="info-item">
+              <i class="fas fa-users"></i>
+              <span>Indicador: ${indicadorNome}</span>
+            </div>
+          ` : ''}
+          ${promotorNomeLead ? `
             <div class="info-item">
               <i class="fas fa-user-tie"></i>
-              <span>Vendedor: ${vendedor}</span>
+              <span>Promotor: ${promotorNomeLead}</span>
+            </div>
+          ` : ''}
+          ${televendasNome ? `
+            <div class="info-item">
+              <i class="fas fa-headset"></i>
+              <span>Televendas (GHL): ${televendasNome}</span>
             </div>
           ` : ''}
           ${lead.status === 'Fechado' ? `
@@ -511,12 +551,15 @@ function exportPromotorLeadsData(format) {
     'Data e Hora',
     'Nome',
     'Telefone',
+    'Indicador',
+    'Promotor',
+    'Televendas (GHL)',
     'Status',
-    'Valor (R$)'
+    'Valor (R$)',
   ];
 
   const rowMapper = (lead) => {
-    const dataHora = lead.dataHora 
+    const dataHora = lead.dataHora
       ? new Date(lead.dataHora).toLocaleString('pt-BR')
       : 'N/A';
     const valor = lead.status === 'Fechado' ? '59.99' : '0.00';
@@ -524,8 +567,11 @@ function exportPromotorLeadsData(format) {
       dataHora,
       lead.nome || 'N/A',
       lead.telefone || 'N/A',
+      lead.indicadorNome || '',
+      lead.promotorNome || '',
+      lead.televendasNome || lead.vendedor || '',
       lead.status || 'N/A',
-      valor
+      valor,
     ];
   };
 

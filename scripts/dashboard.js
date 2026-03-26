@@ -162,7 +162,7 @@ async function loadDashboard() {
     if (dataFim) params.append('dataFim', dataFim);
     if (params.toString()) url += '?' + params.toString();
 
-    const response = await fetch(url);
+    const response = await fetch(url, { credentials: 'include' });
     
     if (!response.ok) {
       throw new Error('Erro ao buscar dados');
@@ -198,6 +198,7 @@ let allIndicacoesData = null;
 // Variáveis para gráficos
 let chartTimeline = null;
 let chartPizza = null;
+let chartStatusFunil = null;
 
 // Processa e exibe os dados
 function processDashboardData(data) {
@@ -265,8 +266,11 @@ function exportDashboardData(format) {
     'Telefone',
     'Código de Indicação',
     'Indicador',
+    'Promotor',
     'Origem',
-    'Status'
+    'Status',
+    'Responsável (GHL)',
+    'Data fechamento',
   ];
 
   // Mapeia dados para exportação
@@ -280,8 +284,13 @@ function exportDashboardData(format) {
     const indicador = getNomeIndicador(codigo);
     const origem = indicacao.origem || indicacao.Origem || 'N/A';
     const status = indicacao.status || indicacao.Status || 'N/A';
+    const promotor = indicacao.promotorNome || '';
+    const resp = indicacao.responsavelNome || '';
+    const fechado = indicacao.fechadoEm
+      ? new Date(indicacao.fechadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+      : '';
 
-    return [dataHora, nome, telefone, codigo, indicador, origem, status];
+    return [dataHora, nome, telefone, codigo, indicador, promotor, origem, status, resp, fechado];
   };
 
   // Gera nome do arquivo com data
@@ -385,8 +394,135 @@ function processFilteredData(data) {
 
   // Atualiza gráficos
   updateCharts(data, ranking);
+  updateMetricasAvancadas(data.metricas);
 }
 
+
+function updateMetricasAvancadas(m) {
+  if (!m) return;
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  set('metricFechadosCohort', String(m.fechadosEntreIndicadosDoPeriodo ?? 0));
+  set('metricPerdidosCohort', String(m.perdidosEntreIndicadosDoPeriodo ?? 0));
+  set('metricAndamentoCohort', String(m.emAndamentoEntreIndicadosDoPeriodo ?? 0));
+  set('metricTaxaFechamento', `${m.taxaFechamentoSobreIndicadosPercent ?? 0}%`);
+  set('metricFechamentosDataGanho', String(m.fechamentosPorDataGanhoNoPeriodo ?? 0));
+
+  const hint = document.getElementById('hintCohortFiltro');
+  if (hint) {
+    const di = document.getElementById('dateFilterInicio')?.value;
+    const df = document.getElementById('dateFilterFim')?.value;
+    hint.textContent =
+      di || df
+        ? 'Filtro ativo: os cards acima contam leads pela data de entrada. “Ganhos no período”, televendas e promotores usam a data do ganho (fechamento no sistema).'
+        : 'Sem filtro: visão geral. Use as datas para ver um mês específico de entradas e de ganhos.';
+  }
+
+  const legCohort = document.getElementById('legendaCohort');
+  if (legCohort && m.legendas) legCohort.textContent = m.legendas.cohortEntrada || '';
+  const legGanho = document.getElementById('legendaDataGanho');
+  if (legGanho && m.legendas) legGanho.textContent = m.legendas.fechamentosDataGanho || '';
+  const legTv = document.getElementById('legendaTelevendas');
+  if (legTv && m.legendas) legTv.textContent = m.legendas.televendas || '';
+  const legProm = document.getElementById('legendaPromotoresRanking');
+  if (legProm && m.legendas) legProm.textContent = m.legendas.promotores || '';
+
+  const fillRankingTbody = (tbodyId, rows, emptyMsg) => {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `
+        <tr><td colspan="3" style="text-align:center;padding:1.5rem;opacity:0.7;">
+          ${emptyMsg}
+        </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows
+      .map(
+        (r) => `
+        <tr>
+          <td>${escapeHtmlDash(r.nome)}</td>
+          <td style="text-align:center;font-weight:700;">${r.fechados}</td>
+          <td style="text-align:center;">${r.percentualSobreFechamentosNoPeriodo}%</td>
+        </tr>`,
+      )
+      .join('');
+  };
+
+  fillRankingTbody(
+    'televendasTableBody',
+    m.televendasRanking,
+    'Nenhum fechamento com data no período.',
+  );
+  fillRankingTbody(
+    'promotoresRankingTableBody',
+    m.promotoresRanking,
+    'Nenhum fechamento no período ou todos sem promotor cadastrado no lead.',
+  );
+
+  updateStatusFunilChart(m);
+}
+
+function escapeHtmlDash(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function updateStatusFunilChart(metricas) {
+  const ctx = document.getElementById('chartStatusFunil');
+  if (!ctx || !metricas) return;
+
+  const f = metricas.fechadosEntreIndicadosDoPeriodo || 0;
+  const p = metricas.perdidosEntreIndicadosDoPeriodo || 0;
+  const e = metricas.emAndamentoEntreIndicadosDoPeriodo || 0;
+
+  if (chartStatusFunil) {
+    chartStatusFunil.destroy();
+  }
+
+  chartStatusFunil = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Fechados', 'Perdidos', 'Em andamento'],
+      datasets: [
+        {
+          data: [f, p, e],
+          backgroundColor: [
+            'rgba(15, 138, 60, 0.92)',
+            'rgba(192, 48, 48, 0.88)',
+            'rgba(90, 110, 120, 0.55)',
+          ],
+          borderWidth: 3,
+          borderColor: '#ffffff',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.4,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { family: 'Inter', size: 12 } },
+        },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const v = ctx.raw || 0;
+              const sum = f + p + e;
+              const pct = sum ? ((v / sum) * 100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${v} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
 
 // Atualiza gráficos
 function updateCharts(data, ranking) {

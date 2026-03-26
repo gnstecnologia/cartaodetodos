@@ -96,6 +96,11 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       }
 
+      .nav-btn.dash-view-tab-active {
+        background: rgba(166, 255, 0, 0.22);
+        border-color: rgba(166, 255, 0, 0.45);
+      }
+
       .stats-summary {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -719,11 +724,20 @@
             </button>
           </div>
         </div>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+          <button type="button" id="listaTabPromotor" class="nav-btn" onclick="setListaPromotoresView('promotor')">
+            <i class="fas fa-user-tie"></i> Por promotor
+          </button>
+          <button type="button" id="listaTabTelevendas" class="nav-btn" onclick="setListaPromotoresView('televendas')">
+            <i class="fas fa-headset"></i> Por televendas (GHL)
+          </button>
+        </div>
+        <p id="listaPromotoresHint" style="font-size: 0.85rem; opacity: 0.85; margin: 0 0 1rem; color: var(--color-dark);"></p>
         <div class="filters-row">
           <div class="filter-group">
             <label class="filter-label">
               <i class="fas fa-search"></i>
-              Buscar Promotor
+              <span id="listaSearchLabel">Buscar promotor</span>
             </label>
             <input 
               type="text" 
