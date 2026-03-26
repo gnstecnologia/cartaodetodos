@@ -347,6 +347,14 @@ function processFilteredData(data) {
   if (elInds) elInds.textContent = ranking.length;
   if (elMed) elMed.textContent = media;
 
+  const metaInd = document.getElementById('statMetaIndicadores');
+  if (metaInd) {
+    metaInd.textContent =
+      ranking.length > 0
+        ? `${ranking.length} indicador${ranking.length !== 1 ? 'es' : ''} · média ${media} por indicador`
+        : 'Sem indicações no período filtrado';
+  }
+
   rankingBody.innerHTML = '';
 
   if (ranking.length === 0) {
@@ -410,29 +418,32 @@ function updateMetricasAvancadas(m) {
     if (el) el.textContent = val;
   };
   set('metricFechadosCohort', String(m.fechadosEntreIndicadosDoPeriodo ?? 0));
-  set('metricPerdidosCohort', String(m.perdidosEntreIndicadosDoPeriodo ?? 0));
-  set('metricAndamentoCohort', String(m.emAndamentoEntreIndicadosDoPeriodo ?? 0));
   set('metricTaxaFechamento', `${m.taxaFechamentoSobreIndicadosPercent ?? 0}%`);
   set('metricFechamentosDataGanho', String(m.fechamentosPorDataGanhoNoPeriodo ?? 0));
 
-  const hint = document.getElementById('hintCohortFiltro');
-  if (hint) {
+  const legBox = document.getElementById('dashboardLegendContent');
+  if (legBox && m.legendas) {
     const di = document.getElementById('dateFilterInicio')?.value;
     const df = document.getElementById('dateFilterFim')?.value;
-    hint.textContent =
-      di || df
-        ? 'Filtro ativo: os cards acima contam leads pela data de entrada. “Ganhos no período”, televendas e promotores usam a data do ganho (fechamento no sistema).'
-        : 'Sem filtro: visão geral. Use as datas para ver um mês específico de entradas e de ganhos.';
+    const filtP = di || df
+      ? '<p class="dashboard-legend-filter">Com filtro: números principais usam a <strong>data de entrada</strong> do lead; tabelas de ganhos usam a <strong>data do fechamento</strong>.</p>'
+      : '<p class="dashboard-legend-filter">Sem filtro de datas: visão geral. Use o período acima para refinar.</p>';
+    const items = [
+      m.legendas.cohortEntrada,
+      m.legendas.fechamentosDataGanho,
+      m.legendas.televendas,
+      m.legendas.promotores,
+    ]
+      .filter(Boolean)
+      .map((t) => `<li>${escapeHtmlDash(t)}</li>`)
+      .join('');
+    legBox.innerHTML = `${filtP}<ul class="dashboard-legend-list">${items}</ul>`;
   }
 
-  const legCohort = document.getElementById('legendaCohort');
-  if (legCohort && m.legendas) legCohort.textContent = m.legendas.cohortEntrada || '';
-  const legGanho = document.getElementById('legendaDataGanho');
-  if (legGanho && m.legendas) legGanho.textContent = m.legendas.fechamentosDataGanho || '';
   const legTv = document.getElementById('legendaTelevendas');
-  if (legTv && m.legendas) legTv.textContent = m.legendas.televendas || '';
+  if (legTv) legTv.textContent = 'Ganhos no período por responsável no GHL.';
   const legProm = document.getElementById('legendaPromotoresRanking');
-  if (legProm && m.legendas) legProm.textContent = m.legendas.promotores || '';
+  if (legProm) legProm.textContent = 'Ganhos no período por promotor (campo no lead).';
 
   const fillRankingTbody = (tbodyId, rows, emptyMsg) => {
     const tbody = document.getElementById(tbodyId);
@@ -508,7 +519,7 @@ function updateStatusFunilChart(metricas) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: 1.4,
+      aspectRatio: 1.15,
       plugins: {
         legend: {
           position: 'bottom',

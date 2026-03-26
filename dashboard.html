@@ -20,9 +20,9 @@
     </script>
     <style>
       .dashboard-container {
-        max-width: 1400px;
+        max-width: min(1680px, 100%);
         margin: 0 auto;
-        padding: 2rem;
+        padding: 1.5rem clamp(1rem, 3vw, 2rem);
       }
 
       .dashboard-header {
@@ -540,6 +540,222 @@
         color: rgba(15, 31, 19, 0.5);
         margin-top: 0.5rem;
         font-weight: 500;
+      }
+
+      .stat-trend--kpi {
+        margin-top: 0.35rem;
+        font-size: 0.7rem;
+        line-height: 1.35;
+      }
+
+      .stat-meta {
+        font-size: 0.75rem;
+        color: rgba(15, 31, 19, 0.55);
+        margin: 0.4rem 0 0;
+        font-weight: 500;
+        line-height: 1.35;
+      }
+
+      .dashboard-sr-only {
+        display: none;
+      }
+
+      .dashboard-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      @media (max-width: 1100px) {
+        .dashboard-kpi-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .stat-card--kpi {
+        padding: 1.15rem 1.3rem;
+        margin-bottom: 0;
+      }
+
+      .stat-card--kpi .stat-content {
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .stat-card--kpi .stat-label {
+        margin: 0 0 0.25rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+      }
+
+      .stat-card--kpi .stat-value {
+        font-size: 2rem;
+        margin: 0.15rem 0 0;
+      }
+
+      .stat-icon-wrapper--sm {
+        width: 52px;
+        height: 52px;
+        min-width: 52px;
+        border-radius: 14px;
+      }
+
+      .stat-icon-wrapper--sm .stat-icon {
+        font-size: 1.35rem;
+        animation: none;
+      }
+
+      .dashboard-metrics-help {
+        margin: 0 0 1.1rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        overflow: hidden;
+      }
+
+      .dashboard-metrics-help summary {
+        cursor: pointer;
+        padding: 0.65rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: rgba(15, 31, 19, 0.85);
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .dashboard-metrics-help summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .dashboard-metrics-help summary::before {
+        content: '▸';
+        font-size: 0.65rem;
+        opacity: 0.6;
+        transition: transform 0.2s ease;
+      }
+
+      .dashboard-metrics-help[open] summary::before {
+        transform: rotate(90deg);
+      }
+
+      .dashboard-metrics-help .dashboard-legend-inner {
+        padding: 0 1rem 0.9rem;
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: rgba(15, 31, 19, 0.78);
+        border-top: 1px solid rgba(15, 138, 60, 0.12);
+      }
+
+      .dashboard-legend-filter {
+        margin: 0.65rem 0 0.5rem;
+        font-weight: 600;
+      }
+
+      .dashboard-legend-list {
+        margin: 0;
+        padding-left: 1.15rem;
+      }
+
+      .dashboard-legend-list li {
+        margin-bottom: 0.35rem;
+      }
+
+      .dashboard-top-grid {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr);
+        gap: 1.15rem;
+        margin-bottom: 1.15rem;
+        align-items: stretch;
+      }
+
+      @media (max-width: 1200px) {
+        .dashboard-top-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .dashboard-dual-rankings {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1rem;
+        min-width: 0;
+      }
+
+      @media (max-width: 900px) {
+        .dashboard-dual-rankings {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .ranking-section--compact {
+        padding: 1.2rem 1.3rem;
+        margin-bottom: 0;
+      }
+
+      .ranking-section--compact .section-title-group {
+        margin-bottom: 0.5rem;
+      }
+
+      .ranking-section--compact .section-title {
+        font-size: 1.05rem;
+      }
+
+      .ranking-section--compact .section-title-icon {
+        font-size: 1.35rem;
+        width: 40px;
+        height: 40px;
+      }
+
+      .table-hint {
+        font-size: 0.72rem;
+        opacity: 0.8;
+        margin: 0 0 0.6rem;
+        line-height: 1.35;
+      }
+
+      .dashboard-bottom-grid {
+        display: grid;
+        grid-template-columns: 1fr minmax(280px, 0.9fr);
+        gap: 1.15rem;
+        align-items: start;
+      }
+
+      @media (max-width: 1200px) {
+        .dashboard-bottom-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .charts-row-pair {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1rem;
+      }
+
+      @media (max-width: 768px) {
+        .charts-row-pair {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .chart-container--compact {
+        padding: 1.2rem 1.3rem;
+      }
+
+      .chart-container--compact .chart-header {
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.6rem;
+      }
+
+      .chart-container--compact .chart-title {
+        font-size: 1.05rem;
+      }
+
+      .chart-container--status canvas {
+        max-height: 260px;
       }
 
       .ranking-section {
@@ -1388,7 +1604,25 @@
           flex-direction: column;
         }
 
+        .dashboard-kpi-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .dashboard-top-grid,
+        .dashboard-bottom-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .dashboard-dual-rankings {
+          grid-template-columns: 1fr;
+        }
+
         .stat-content {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .stat-card--kpi .stat-content {
           flex-direction: column;
           text-align: center;
         }
@@ -1882,160 +2116,113 @@
           <div id="error" class="error-message" style="display: none;"></div>
 
           <div id="dashboardContent" style="display: none;">
-            <!-- Cards de Estatísticas - Layout Horizontal -->
-            <div class="stats-row">
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.1s;">
+            <!-- KPIs principais (uma linha densa) -->
+            <div class="dashboard-kpi-grid">
+              <div class="stat-card stat-card--kpi animate-fade-in">
                 <div class="stat-content">
-                  <div class="stat-icon-wrapper">
+                  <div class="stat-icon-wrapper stat-icon-wrapper--sm">
                     <i class="fas fa-chart-line stat-icon"></i>
                   </div>
                   <div class="stat-info">
-                <p class="stat-label">Total de Indicados</p>
-                <p class="stat-value" id="totalIndicados">0</p>
-                    <div class="stat-trend" id="trendIndicacoes"></div>
-              </div>
-                </div>
-              </div>
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.2s;">
-                <div class="stat-content">
-                  <div class="stat-icon-wrapper">
-                    <i class="fas fa-users stat-icon"></i>
-                  </div>
-                  <div class="stat-info">
-                <p class="stat-label">Indicadores Ativos</p>
-                <p class="stat-value" id="totalIndicadores">0</p>
-                    <div class="stat-trend" id="trendIndicadores"></div>
-              </div>
-                </div>
-              </div>
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.3s;">
-                <div class="stat-content">
-                  <div class="stat-icon-wrapper">
-                    <i class="fas fa-chart-bar stat-icon"></i>
-                  </div>
-                  <div class="stat-info">
-                <p class="stat-label">Média por Indicador</p>
-                <p class="stat-value" id="mediaIndicadores">0</p>
-                    <div class="stat-trend" id="trendMedia"></div>
+                    <p class="stat-label">Indicados no período</p>
+                    <p class="stat-value" id="totalIndicados">0</p>
+                    <p class="stat-meta" id="statMetaIndicadores"></p>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <p id="hintCohortFiltro" class="metricas-hint" style="font-size: 0.88rem; color: rgba(15, 31, 19, 0.75); margin: 0 0 1rem; line-height: 1.45;"></p>
-
-            <div class="stats-row">
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.15s;">
+              <div class="stat-card stat-card--kpi animate-fade-in">
                 <div class="stat-content">
-                  <div class="stat-icon-wrapper">
-                    <i class="fas fa-check-circle stat-icon" style="color: #0f8a3c;"></i>
-                  </div>
-                  <div class="stat-info">
-                    <p class="stat-label">Fechados (entre indicados do período)</p>
-                    <p class="stat-value" id="metricFechadosCohort">0</p>
-                    <p class="stat-trend" style="font-size: 0.78rem; opacity: 0.75;">Status atual dos leads que entraram no filtro</p>
-                  </div>
-                </div>
-              </div>
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.18s;">
-                <div class="stat-content">
-                  <div class="stat-icon-wrapper">
-                    <i class="fas fa-times-circle stat-icon" style="color: #b83232;"></i>
-                  </div>
-                  <div class="stat-info">
-                    <p class="stat-label">Perdidos</p>
-                    <p class="stat-value" id="metricPerdidosCohort">0</p>
-                  </div>
-                </div>
-              </div>
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.21s;">
-                <div class="stat-content">
-                  <div class="stat-icon-wrapper">
-                    <i class="fas fa-hourglass-half stat-icon" style="color: #5a6e78;"></i>
-                  </div>
-                  <div class="stat-info">
-                    <p class="stat-label">Em andamento</p>
-                    <p class="stat-value" id="metricAndamentoCohort">0</p>
-                  </div>
-                </div>
-              </div>
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.24s;">
-                <div class="stat-content">
-                  <div class="stat-icon-wrapper">
+                  <div class="stat-icon-wrapper stat-icon-wrapper--sm">
                     <i class="fas fa-percentage stat-icon"></i>
                   </div>
                   <div class="stat-info">
-                    <p class="stat-label">Taxa fechamento</p>
+                    <p class="stat-label">Taxa de fechamento</p>
                     <p class="stat-value" id="metricTaxaFechamento">0%</p>
-                    <p class="stat-trend" style="font-size: 0.78rem; opacity: 0.75;">Fechados ÷ indicados do período</p>
+                    <p class="stat-trend stat-trend--kpi">Fechados entre quem entrou no filtro</p>
                   </div>
                 </div>
               </div>
-              <div class="stat-card animate-fade-in" style="animation-delay: 0.27s;">
+              <div class="stat-card stat-card--kpi animate-fade-in">
                 <div class="stat-content">
-                  <div class="stat-icon-wrapper">
+                  <div class="stat-icon-wrapper stat-icon-wrapper--sm">
+                    <i class="fas fa-check-circle stat-icon" style="color: #0f8a3c;"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Fechados (entrada no filtro)</p>
+                    <p class="stat-value" id="metricFechadosCohort">0</p>
+                    <p class="stat-trend stat-trend--kpi">Status atual · perdidos e abertos no gráfico</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card stat-card--kpi animate-fade-in">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper stat-icon-wrapper--sm">
                     <i class="fas fa-trophy stat-icon" style="color: #c9a227;"></i>
                   </div>
                   <div class="stat-info">
-                    <p class="stat-label">Ganhos no período (data do ganho)</p>
+                    <p class="stat-label">Ganhos no período</p>
                     <p class="stat-value" id="metricFechamentosDataGanho">0</p>
-                    <p class="stat-trend" style="font-size: 0.78rem; opacity: 0.75;">Data registrada ao marcar ganho (webhook GHL)</p>
+                    <p class="stat-trend stat-trend--kpi">Pela data do fechamento (ganho)</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <p id="legendaCohort" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 0.5rem;"></p>
-            <p id="legendaDataGanho" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 1.25rem;"></p>
+            <span id="totalIndicadores" class="dashboard-sr-only" aria-hidden="true">0</span>
+            <span id="mediaIndicadores" class="dashboard-sr-only" aria-hidden="true">0</span>
 
-            <div class="dashboard-main-grid" style="margin-bottom: 2rem;">
-              <div class="charts-column">
-                <div class="chart-container animate-slide-up" style="animation-delay: 0.32s;">
-                  <div class="chart-header">
-                    <div class="chart-title-group">
-                      <i class="fas fa-chart-pie chart-title-icon"></i>
-                      <div>
-                        <h3 class="chart-title">Indicados do período — status</h3>
-                        <span class="chart-subtitle">Mesma base do filtro (data de entrada)</span>
-                      </div>
+            <details class="dashboard-metrics-help">
+              <summary>Como ler estas métricas</summary>
+              <div class="dashboard-legend-inner" id="dashboardLegendContent"></div>
+            </details>
+
+            <!-- Status + tabelas televendas/promotores lado a lado -->
+            <div class="dashboard-top-grid">
+              <div class="chart-container chart-container--compact chart-container--status animate-slide-up">
+                <div class="chart-header">
+                  <div class="chart-title-group">
+                    <i class="fas fa-chart-pie chart-title-icon"></i>
+                    <div>
+                      <h3 class="chart-title">Funil do período</h3>
+                      <span class="chart-subtitle">Fechados, perdidos e em andamento</span>
                     </div>
                   </div>
-                  <canvas id="chartStatusFunil"></canvas>
                 </div>
+                <canvas id="chartStatusFunil"></canvas>
               </div>
-              <div class="ranking-column">
-                <div class="ranking-section animate-slide-up" style="animation-delay: 0.34s;">
+              <div class="dashboard-dual-rankings">
+                <div class="ranking-section ranking-section--compact animate-slide-up">
                   <div class="section-title-group">
                     <i class="fas fa-headset section-title-icon"></i>
-                    <h2 class="section-title">Televendas — ganhos no período</h2>
+                    <h2 class="section-title">Televendas</h2>
                   </div>
-                  <p id="legendaTelevendas" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 1rem;"></p>
+                  <p id="legendaTelevendas" class="table-hint"></p>
                   <div class="table-wrapper">
                     <table class="ranking-table">
                       <thead>
                         <tr>
                           <th>Responsável (GHL)</th>
                           <th>Ganhos</th>
-                          <th>% do período</th>
+                          <th>%</th>
                         </tr>
                       </thead>
                       <tbody id="televendasTableBody"></tbody>
                     </table>
                   </div>
                 </div>
-                <div class="ranking-section animate-slide-up" style="animation-delay: 0.36s; margin-top: 1.5rem;">
+                <div class="ranking-section ranking-section--compact animate-slide-up">
                   <div class="section-title-group">
                     <i class="fas fa-user-tie section-title-icon"></i>
-                    <h2 class="section-title">Promotores — ganhos no período</h2>
+                    <h2 class="section-title">Promotores</h2>
                   </div>
-                  <p id="legendaPromotoresRanking" class="metricas-hint" style="font-size: 0.82rem; margin: 0 0 1rem;"></p>
+                  <p id="legendaPromotoresRanking" class="table-hint"></p>
                   <div class="table-wrapper">
                     <table class="ranking-table">
                       <thead>
                         <tr>
-                          <th>Promotor (campo no lead)</th>
+                          <th>Promotor</th>
                           <th>Ganhos</th>
-                          <th>% do período</th>
+                          <th>%</th>
                         </tr>
                       </thead>
                       <tbody id="promotoresRankingTableBody"></tbody>
@@ -2045,56 +2232,52 @@
               </div>
             </div>
 
-            <!-- Layout Horizontal: Gráficos e Ranking lado a lado -->
-            <div class="dashboard-main-grid">
-              <!-- Coluna Esquerda: Gráficos -->
-              <div class="charts-column">
-                <div class="chart-container animate-slide-up" style="animation-delay: 0.4s;">
-                  <div class="chart-header">
-                    <div class="chart-title-group">
-                      <i class="fas fa-chart-area chart-title-icon"></i>
-                      <div>
-                        <h3 class="chart-title">Indicados por Período</h3>
-                        <span class="chart-subtitle">Últimos 7 dias</span>
+            <!-- Linha do tempo + pizza + ranking (equilibrado) -->
+            <div class="dashboard-bottom-grid">
+              <div class="charts-column" style="gap: 1rem;">
+                <div class="charts-row-pair">
+                  <div class="chart-container chart-container--compact animate-slide-up">
+                    <div class="chart-header">
+                      <div class="chart-title-group">
+                        <i class="fas fa-chart-area chart-title-icon"></i>
+                        <div>
+                          <h3 class="chart-title">Indicados — 7 dias</h3>
+                          <span class="chart-subtitle">Volume diário</span>
+                        </div>
                       </div>
                     </div>
+                    <canvas id="chartTimeline"></canvas>
                   </div>
-                  <canvas id="chartTimeline"></canvas>
-                </div>
-                
-                <div class="chart-container animate-slide-up" style="animation-delay: 0.5s;">
-                  <div class="chart-header">
-                    <div class="chart-title-group">
-                      <i class="fas fa-chart-pie chart-title-icon"></i>
-                      <div>
-                        <h3 class="chart-title">Top 5 Indicadores</h3>
-                        <span class="chart-subtitle">Distribuição percentual</span>
+                  <div class="chart-container chart-container--compact animate-slide-up">
+                    <div class="chart-header">
+                      <div class="chart-title-group">
+                        <i class="fas fa-chart-pie chart-title-icon"></i>
+                        <div>
+                          <h3 class="chart-title">Top 5 indicadores</h3>
+                          <span class="chart-subtitle">% no período filtrado</span>
+                        </div>
                       </div>
                     </div>
+                    <canvas id="chartPizza"></canvas>
                   </div>
-                  <canvas id="chartPizza"></canvas>
                 </div>
               </div>
-
-              <!-- Coluna Direita: Ranking -->
-              <div class="ranking-column">
-                <div class="ranking-section animate-slide-up" style="animation-delay: 0.6s;">
-                  <div class="section-title-group">
-                    <i class="fas fa-trophy section-title-icon"></i>
-              <h2 class="section-title">Ranking de Indicadores</h2>
-                  </div>
-              <div class="table-wrapper">
-              <table class="ranking-table">
-                <thead>
-                  <tr>
-                    <th>Posição</th>
-                      <th>Nome</th>
-                      <th>Indicados</th>
-                  </tr>
-                </thead>
-                <tbody id="rankingBody"></tbody>
-              </table>
-              </div>
+              <div class="ranking-section ranking-section--compact animate-slide-up">
+                <div class="section-title-group">
+                  <i class="fas fa-trophy section-title-icon"></i>
+                  <h2 class="section-title">Ranking de indicadores</h2>
+                </div>
+                <div class="table-wrapper">
+                  <table class="ranking-table">
+                    <thead>
+                      <tr>
+                        <th>Pos.</th>
+                        <th>Nome</th>
+                        <th>Qtd.</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rankingBody"></tbody>
+                  </table>
                 </div>
               </div>
             </div>
