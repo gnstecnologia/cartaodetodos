@@ -137,6 +137,8 @@
         margin-bottom: 2rem;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
         border: 1px solid rgba(255, 255, 255, 0.3);
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .filters-title {
@@ -151,16 +153,32 @@
       }
 
       .filters-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto;
+        display: flex;
+        flex-wrap: wrap;
         gap: 1rem;
-        align-items: end;
+        align-items: flex-end;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .filter-group {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
+        flex: 1 1 160px;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .filters-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: flex-end;
+        flex: 0 1 auto;
+        max-width: 100%;
+        min-width: 0;
       }
 
       .filter-label {
@@ -183,6 +201,9 @@
         background: white;
         position: relative;
         z-index: 9999;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
       }
 
       .filter-select {
@@ -868,17 +889,28 @@
         }
 
         .filters-row {
-          grid-template-columns: 1fr !important;
-          gap: 1.25rem;
+          flex-direction: column;
+          align-items: stretch;
         }
 
         .filter-group {
+          flex: 1 1 100%;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .filters-actions {
+          flex: 1 1 100%;
           width: 100%;
         }
 
         .filter-input,
         .filter-select,
         .filter-btn {
+          width: 100%;
+        }
+
+        .clear-btn {
           width: 100%;
         }
 
@@ -1083,11 +1115,8 @@
             </label>
             <select id="statusFilter" class="filter-select" onchange="applyFilters()">
               <option value="">Todos os Status</option>
-              <option value="Nova Indicação">Nova Indicação</option>
-              <option value="Em Contato">Em Contato</option>
-              <option value="Em Negociação">Em Negociação</option>
-              <option value="Fechado">Fechado</option>
-              <option value="Perdido">Perdido</option>
+              <option value="Novo indicado">Novo indicado</option>
+              <option value="Ganho">Ganho</option>
             </select>
           </div>
           <div class="filter-group">
@@ -1127,11 +1156,11 @@
               <option value="status">Status</option>
             </select>
           </div>
-          <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
-            <button class="filter-btn" onclick="applyFilters()">
+          <div class="filters-actions">
+            <button type="button" class="filter-btn" onclick="applyFilters()">
               <i class="fas fa-search"></i> Buscar
             </button>
-            <button class="clear-btn" onclick="clearFilters()">
+            <button type="button" class="clear-btn" onclick="clearFilters()">
               <i class="fas fa-times"></i> Limpar
             </button>
           </div>

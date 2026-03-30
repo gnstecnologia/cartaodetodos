@@ -14,28 +14,37 @@ let currentPage = 1;
 
 // Função para converter formato brasileiro para Date
 function parseBrazilianDate(dateString) {
-  if (!dateString || typeof dateString !== 'string') return null;
-  
+  if (!dateString) return null;
+  if (dateString instanceof Date) return isNaN(dateString.getTime()) ? null : dateString;
+  if (typeof dateString !== 'string') return null;
+
   const trimmed = dateString.trim();
-  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
-  if (match) {
-    const [, dia, mes, ano, hora, minuto, segundo] = match;
-    const date = new Date(Date.UTC(
-      parseInt(ano, 10),
-      parseInt(mes, 10) - 1,
-      parseInt(dia, 10),
-      parseInt(hora, 10) + 3,
-      parseInt(minuto, 10),
-      parseInt(segundo, 10)
-    ));
-    return date;
+
+  // Aceita "DD/MM/YYYY HH:mm" ou "DD/MM/YYYY HH:mm:ss"
+  const br = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (br) {
+    const [, dia, mes, ano, hora, minuto, segundo] = br;
+    const date = new Date(
+      Date.UTC(
+        parseInt(ano, 10),
+        parseInt(mes, 10) - 1,
+        parseInt(dia, 10),
+        parseInt(hora, 10) + 3,
+        parseInt(minuto, 10),
+        parseInt(segundo || '0', 10),
+      ),
+    );
+    return isNaN(date.getTime()) ? null : date;
   }
-  
-  try {
-    return new Date(dateString);
-  } catch {
-    return null;
-  }
+
+  const iso = new Date(trimmed);
+  return isNaN(iso.getTime()) ? null : iso;
+}
+
+function stageLegivel(indicacao) {
+  const s = (indicacao?.statusLegivel || indicacao?.status || indicacao?.Status || '').toString().trim();
+  if (s.toLowerCase() === 'ganho' || s.toLowerCase() === 'fechado') return 'Ganho';
+  return 'Novo indicado';
 }
 
 // Formata data para exibição
@@ -194,8 +203,8 @@ function applyFilters() {
 
     // Filtro de status
     if (statusFilter) {
-      const status = indicacao.status || indicacao.Status || 'Nova Indicação';
-      if (status !== statusFilter) {
+      const stage = stageLegivel(indicacao);
+      if (stage !== statusFilter) {
         return false;
       }
     }
@@ -359,8 +368,10 @@ function renderIndicados() {
     const nome = indicacao.nome || indicacao.Nome || 'Sem nome';
     const telefone = indicacao.telefone || indicacao.Telefone || 'Sem telefone';
     const dataHora = indicacao.dataHora || indicacao['Data e Hora'] || indicacao['Data de Criação'] || '';
+    const fechadoEm = indicacao.fechadoEm || indicacao.fechado_em || '';
+    const promotorNome = indicacao.promotorNome || '';
     const status = indicacao.status || indicacao.Status || 'Nova Indicação';
-    const statusTexto = indicacao.statusLegivel || status;
+    const stageTexto = stageLegivel(indicacao);
     const origem = indicacao.origem || indicacao.Origem || '';
     const statusClass = getStatusClass(status);
     
@@ -368,7 +379,7 @@ function renderIndicados() {
       <div class="indicado-card" style="animation-delay: ${index * 0.05}s;">
         <div class="indicado-header">
           <h3 class="indicado-name">${nome}</h3>
-          <span class="status-badge ${statusClass}">${statusTexto}</span>
+          <span class="status-badge ${statusClass}">${stageTexto}</span>
         </div>
         
         <div class="indicado-info">
@@ -377,10 +388,20 @@ function renderIndicados() {
             <span>${telefone}</span>
           </div>
           
-          ${dataHora ? `
+          <div class="info-item">
+            <i class="fas fa-calendar-plus"></i>
+            <span>Entrou: ${dataHora ? formatDate(dataHora) : 'N/A'}</span>
+          </div>
+
+          <div class="info-item">
+            <i class="fas fa-check-circle"></i>
+            <span>Ganho: ${fechadoEm ? formatDate(fechadoEm) : '—'}</span>
+          </div>
+
+          ${promotorNome ? `
             <div class="info-item">
-              <i class="fas fa-calendar-alt"></i>
-              <span>${formatDate(dataHora)}</span>
+              <i class="fas fa-user-tie"></i>
+              <span>Promotor: ${promotorNome}</span>
             </div>
           ` : ''}
           
@@ -390,12 +411,6 @@ function renderIndicados() {
               <span>${origem}</span>
             </div>
           ` : ''}
-        </div>
-        
-        <div class="indicado-actions">
-          <button class="action-btn" onclick="showTimeline('${indicacao.id || indicacao.ID || ''}')">
-            <i class="fas fa-clock-rotate-left"></i> Ver Timeline
-          </button>
         </div>
         </div>
       `;
