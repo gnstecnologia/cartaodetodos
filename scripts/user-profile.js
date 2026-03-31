@@ -12,10 +12,13 @@ function atualizarPerfilUsuario() {
     const perfilElement = document.getElementById('userProfile');
     if (perfilElement) {
       const tipoNome = getTipoNome(user.tipo);
+      const nomeTrim = String(user.nome || '').trim();
+      const showTipoBadge =
+        tipoNome && nomeTrim.toLowerCase() !== String(tipoNome).toLowerCase();
       perfilElement.innerHTML = `
         <i class="fas fa-user-circle"></i>
         <span>${escapeHtml(user.nome)}</span>
-        <span class="user-type">${tipoNome}</span>
+        ${showTipoBadge ? `<span class="user-type">${escapeHtml(tipoNome)}</span>` : ''}
       `;
       perfilElement.style.display = 'inline-flex';
       perfilElement.style.cursor = 'pointer';
@@ -29,10 +32,13 @@ function atualizarPerfilUsuario() {
     const mobilePerfilElement = document.getElementById('mobileUserProfile');
     if (mobilePerfilElement) {
       const tipoNome = getTipoNome(user.tipo);
+      const nomeTrim = String(user.nome || '').trim();
+      const showTipoBadge =
+        tipoNome && nomeTrim.toLowerCase() !== String(tipoNome).toLowerCase();
       mobilePerfilElement.innerHTML = `
         <i class="fas fa-user-circle"></i>
         <span>${escapeHtml(user.nome)}</span>
-        <span class="user-type">${tipoNome}</span>
+        ${showTipoBadge ? `<span class="user-type">${escapeHtml(tipoNome)}</span>` : ''}
       `;
       mobilePerfilElement.style.display = 'flex';
       mobilePerfilElement.style.cursor = 'pointer';

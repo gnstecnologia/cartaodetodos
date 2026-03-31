@@ -612,63 +612,6 @@
         animation: none;
       }
 
-      .dashboard-metrics-help {
-        margin: 0 0 1.1rem;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.45);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        overflow: hidden;
-      }
-
-      .dashboard-metrics-help summary {
-        cursor: pointer;
-        padding: 0.65rem 1rem;
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: rgba(15, 31, 19, 0.85);
-        list-style: none;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .dashboard-metrics-help summary::-webkit-details-marker {
-        display: none;
-      }
-
-      .dashboard-metrics-help summary::before {
-        content: '▸';
-        font-size: 0.65rem;
-        opacity: 0.6;
-        transition: transform 0.2s ease;
-      }
-
-      .dashboard-metrics-help[open] summary::before {
-        transform: rotate(90deg);
-      }
-
-      .dashboard-metrics-help .dashboard-legend-inner {
-        padding: 0 1rem 0.9rem;
-        font-size: 0.8rem;
-        line-height: 1.5;
-        color: rgba(15, 31, 19, 0.78);
-        border-top: 1px solid rgba(15, 138, 60, 0.12);
-      }
-
-      .dashboard-legend-filter {
-        margin: 0.65rem 0 0.5rem;
-        font-weight: 600;
-      }
-
-      .dashboard-legend-list {
-        margin: 0;
-        padding-left: 1.15rem;
-      }
-
-      .dashboard-legend-list li {
-        margin-bottom: 0.35rem;
-      }
-
       .dashboard-top-grid {
         display: grid;
         grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr);
@@ -2159,11 +2102,6 @@
 
             <span id="totalIndicadores" class="dashboard-sr-only" aria-hidden="true">0</span>
             <span id="mediaIndicadores" class="dashboard-sr-only" aria-hidden="true">0</span>
-
-            <details class="dashboard-metrics-help">
-              <summary>Como ler estas métricas</summary>
-              <div class="dashboard-legend-inner" id="dashboardLegendContent"></div>
-            </details>
 
             <!-- Funil + ranking de promotores (ganhos no período) -->
             <div class="dashboard-top-grid">

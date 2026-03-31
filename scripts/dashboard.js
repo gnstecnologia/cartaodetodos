@@ -419,29 +419,8 @@ function updateMetricasAvancadas(m) {
   set('metricTaxaFechamento', `${m.taxaFechamentoSobreIndicadosPercent ?? 0}%`);
   set('metricFechamentosDataGanho', String(m.fechamentosPorDataGanhoNoPeriodo ?? 0));
 
-  const legBox = document.getElementById('dashboardLegendContent');
-  if (legBox && m.legendas) {
-    const di = document.getElementById('dateFilterInicio')?.value;
-    const df = document.getElementById('dateFilterFim')?.value;
-    const filtP = di || df
-      ? '<p class="dashboard-legend-filter">Com filtro: números principais usam a <strong>data de entrada</strong> do lead; tabelas de ganhos usam a <strong>data do fechamento</strong>.</p>'
-      : '<p class="dashboard-legend-filter">Sem filtro de datas: visão geral. Use o período acima para refinar.</p>';
-    const L = m.legendas || {};
-    const items = [
-      L['papéis'],
-      L.etapasLead,
-      L.cohortEntrada,
-      L.fechamentosDataGanho,
-      L.promotores,
-    ]
-      .filter(Boolean)
-      .map((t) => `<li>${escapeHtmlDash(t)}</li>`)
-      .join('');
-    legBox.innerHTML = `${filtP}<ul class="dashboard-legend-list">${items}</ul>`;
-  }
-
   const legProm = document.getElementById('legendaPromotoresRanking');
-  if (legProm) legProm.textContent = 'Quem fechou no período (captura ou GHL), contagem unificada.';
+  if (legProm) legProm.textContent = '';
 
   const fillRankingTbody = (tbodyId, rows, emptyMsg) => {
     const tbody = document.getElementById(tbodyId);

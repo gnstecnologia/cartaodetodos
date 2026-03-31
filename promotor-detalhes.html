@@ -183,10 +183,57 @@
         transform: translateY(-2px);
       }
 
+      /* Painel claro sobre o hero verde — texto sempre legível */
+      .promotor-context-banner {
+        margin-top: 0.65rem;
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.45rem 0.75rem;
+        padding: 0.65rem 1.15rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.92rem;
+        color: var(--color-dark);
+        line-height: 1.45;
+        max-width: 100%;
+      }
+
+      .promotor-context-banner > i {
+        color: var(--color-background);
+        font-size: 1rem;
+      }
+
+      .promotor-context-banner__count {
+        font-weight: 700;
+        color: var(--color-dark);
+      }
+
+      .promotor-context-banner__sep {
+        color: rgba(15, 31, 19, 0.35);
+        font-weight: 700;
+      }
+
+      .promotor-context-banner__hint {
+        font-weight: 500;
+        color: rgba(15, 31, 19, 0.78);
+      }
+
+      .promotor-context-banner__hint strong {
+        color: var(--color-background);
+        font-weight: 700;
+      }
+
       .leads-list {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 1.5rem;
+        margin-bottom: 2rem;
       }
 
       @media (max-width: 1200px) {
@@ -201,161 +248,289 @@
         }
       }
 
-      .lead-card {
+      .indicado-card {
         background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
-        backdrop-filter: blur(20px);
-        border-radius: 20px;
-        padding: 1.75rem;
-        box-shadow: 
-          0 8px 32px rgba(0, 0, 0, 0.12),
-          0 0 0 1px rgba(255, 255, 255, 0.8) inset,
-          0 1px 0 rgba(255, 255, 255, 0.9) inset;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-left: 5px solid var(--color-background);
+        backdrop-filter: blur(10px);
+        border-radius: 18px;
+        padding: 1.5rem;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.6);
         transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-left: 5px solid var(--color-background);
         position: relative;
         overflow: hidden;
+        animation: cardFadeInPromotor 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       }
 
-      .lead-card::before {
+      @keyframes cardFadeInPromotor {
+        from {
+          opacity: 0;
+          transform: translateY(16px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .indicado-card::before {
         content: '';
         position: absolute;
         top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, var(--color-background), var(--color-highlight), #13c053);
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+        transition: left 0.5s ease;
       }
 
-      .lead-card:hover {
+      .indicado-card:hover::before {
+        left: 100%;
+      }
+
+      .indicado-card:hover {
         transform: translateY(-8px) scale(1.02);
-        box-shadow: 
-          0 20px 60px rgba(0, 0, 0, 0.15),
-          0 0 0 1px rgba(255, 255, 255, 0.9) inset,
-          0 0 40px rgba(15, 138, 60, 0.2);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), 0 0 30px rgba(15, 138, 60, 0.15);
         border-left-width: 6px;
       }
 
-      .lead-card:hover::before {
-        opacity: 1;
-      }
-
-      .lead-header {
+      .indicado-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 1.25rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
         gap: 1rem;
       }
 
-      .lead-name {
-        font-family: 'Source Sans 3', sans-serif;
-        font-size: 1.25rem;
+      .indicado-name {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 1.35rem;
         font-weight: 700;
         color: var(--color-dark);
         margin: 0;
-        line-height: 1.3;
-        flex: 1;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         word-break: break-word;
+      }
+
+      .indicado-card:hover .indicado-name {
+        color: var(--color-background);
+        transform: translateX(4px);
       }
 
       .status-badge {
         padding: 0.5rem 1rem;
-        border-radius: 25px;
+        border-radius: 12px;
         font-family: 'Inter', 'Ubuntu', sans-serif;
-        font-size: 0.8rem;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        white-space: nowrap;
-        flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      .status-nova { 
-        background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(37, 99, 235, 0.1)); 
-        color: #2563eb; 
-        border: 1px solid rgba(37, 99, 235, 0.2);
-      }
-      .status-contato { 
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1)); 
-        color: #f59e0b; 
-        border: 1px solid rgba(245, 158, 11, 0.2);
-      }
-      .status-negociacao { 
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.1)); 
-        color: #8b5cf6; 
-        border: 1px solid rgba(139, 92, 246, 0.2);
-      }
-      .status-fechado { 
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1)); 
-        color: #10b981; 
-        border: 1px solid rgba(16, 185, 129, 0.2);
-      }
-      .status-perdido { 
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1)); 
-        color: #ef4444; 
-        border: 1px solid rgba(239, 68, 68, 0.2);
-      }
-
-      .lead-info {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        font-family: 'Inter', 'Ubuntu', sans-serif;
         font-size: 0.9rem;
-        color: rgba(15, 31, 19, 0.7);
-        margin-bottom: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        flex-shrink: 0;
       }
 
-      .info-item {
+      .status-badge::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        transition: left 0.4s ease;
+      }
+
+      .indicado-card:hover .status-badge {
+        transform: scale(1.06) rotate(1deg);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .indicado-card:hover .status-badge::after {
+        left: 100%;
+      }
+
+      .status-nova {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        color: white;
+      }
+
+      .status-contato {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: white;
+      }
+
+      .status-negociacao {
+        background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+        color: white;
+      }
+
+      .status-fechado {
+        background: linear-gradient(135deg, #10b981, #34d399);
+        color: white;
+      }
+
+      .status-perdido {
+        background: linear-gradient(135deg, #ef4444, #f87171);
+        color: white;
+      }
+
+      .indicado-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .indicado-info .info-item {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        padding: 0.5rem;
-        border-radius: 10px;
-        transition: all 0.2s ease;
-        background: rgba(15, 138, 60, 0.02);
+        padding: 0.75rem;
+        background: rgba(15, 138, 60, 0.05);
+        border-radius: 8px;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.95rem;
+        color: var(--color-dark);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
       }
 
-      .info-item:hover {
-        background: rgba(15, 138, 60, 0.05);
+      .indicado-info .info-item::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--color-background), #13c053);
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicado-card:hover .indicado-info .info-item {
+        background: rgba(15, 138, 60, 0.08);
         transform: translateX(3px);
       }
 
-      .info-item i {
-        color: var(--color-background);
-        width: 18px;
-        text-align: center;
-        font-size: 1rem;
+      .indicado-card:hover .indicado-info .info-item::after {
+        width: 100%;
       }
 
-      .info-item span {
+      .indicado-info .info-item i {
+        color: var(--color-background);
+        width: 20px;
+        text-align: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .indicado-card:hover .indicado-info .info-item i {
+        transform: scale(1.12) rotate(4deg);
+        color: #13c053;
+      }
+
+      .indicado-info .info-item span {
         flex: 1;
         word-break: break-word;
       }
 
-      .nav-btn {
+      .info-item--valor {
+        background: rgba(16, 185, 129, 0.1);
+      }
+
+      .info-item--valor i,
+      .info-item--valor span {
+        color: #0d9668;
+        font-weight: 700;
+      }
+
+      .indicado-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        overflow: hidden;
+        flex: 1;
+        justify-content: center;
+        min-width: 140px;
+      }
+
+      .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
         background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .action-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 6px 20px rgba(15, 138, 60, 0.4);
+      }
+
+      .action-btn i {
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .action-btn:hover i {
+        transform: rotate(-25deg);
+      }
+
+      .promotor-detalhes-header .nav-btn {
+        background: rgba(255, 255, 255, 0.22);
         color: var(--color-white);
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        padding: 0.75rem 1.5rem;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        padding: 0.75rem 1.35rem;
         border-radius: 12px;
         cursor: pointer;
         font-family: 'Inter', 'Ubuntu', sans-serif;
         font-weight: 700;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
         text-decoration: none;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
       }
 
-      .nav-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
+      .promotor-detalhes-header .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.34);
+        border-color: rgba(255, 255, 255, 0.55);
         transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        color: var(--color-white);
       }
 
       .loading, .error {
@@ -459,62 +634,35 @@
         font-size: 1rem;
       }
 
-      .lead-actions {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 2px solid rgba(15, 138, 60, 0.1);
-      }
-
-      .lead-action-btn {
-        flex: 1;
-        padding: 0.65rem 1rem;
-        border-radius: 10px;
-        border: none;
+      .promotor-detalhes-header .user-profile {
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        color: var(--color-dark);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        padding: 0.65rem 1.1rem;
+        border-radius: 12px;
         font-family: 'Inter', 'Ubuntu', sans-serif;
-        font-size: 0.85rem;
         font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-      }
-
-      .lead-action-btn.view,
-      .timeline-btn {
-        background: linear-gradient(135deg, var(--color-background), #13c053);
-        color: white;
-        box-shadow: 0 2px 8px rgba(15, 138, 60, 0.2);
-      }
-
-      .lead-action-btn.view:hover,
-      .timeline-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
-      }
-
-      .lead-action-btn i,
-      .timeline-btn i {
+        gap: 0.65rem;
         font-size: 0.9rem;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
       }
 
-      .timeline-btn {
-        flex: 1;
-        padding: 0.65rem 1rem;
-        border-radius: 10px;
-        border: none;
-        font-family: 'Inter', 'Ubuntu', sans-serif;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
+      .promotor-detalhes-header .user-profile i {
+        font-size: 1.35rem;
+        color: var(--color-background);
+      }
+
+      .promotor-detalhes-header .user-profile .user-type {
+        background: rgba(15, 138, 60, 0.14);
+        padding: 0.2rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #0a5c28;
       }
 
       @media (max-width: 768px) {
@@ -542,12 +690,12 @@
           min-width: 100px;
         }
 
-        .lead-header {
+        .indicado-header {
           flex-direction: column;
           align-items: flex-start;
         }
 
-        .lead-name {
+        .indicado-name {
           width: 100%;
         }
       }
@@ -562,11 +710,21 @@
 
     <div class="promotor-detalhes-container">
       <div class="promotor-detalhes-header">
-        <h1 class="promotor-detalhes-title" id="promotorNome">
-          <i class="fas fa-user-tie"></i>
-          Carregando...
-        </h1>
-        <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1; min-width: 0;">
+          <h1 class="promotor-detalhes-title" id="promotorNome">
+            <i class="fas fa-user-tie"></i>
+            Carregando...
+          </h1>
+          <div class="promotor-context-banner" id="promotorLeadsIntro" aria-live="polite">
+            <i class="fas fa-layer-group" aria-hidden="true"></i>
+            <span class="promotor-context-banner__hint">Carregando lista…</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: flex-end;">
+          <div id="userProfile" class="user-profile" style="display: none;">
+            <i class="fas fa-user-circle"></i>
+            <span>Usuário</span>
+          </div>
           <a href="promotores.html" class="nav-btn">
             <i class="fas fa-arrow-left"></i> Voltar
           </a>
@@ -620,10 +778,7 @@
             <select id="statusFilter" class="filter-select" onchange="applyFilters()">
               <option value="">Todos os Status</option>
               <option value="Nova Indicação">Nova Indicação</option>
-              <option value="Em Contato">Em Contato</option>
-              <option value="Em Negociação">Em Negociação</option>
               <option value="Fechado">Fechado</option>
-              <option value="Perdido">Perdido</option>
             </select>
           </div>
           <div class="filter-group">
@@ -661,6 +816,8 @@
       </div>
     </div>
 
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/user-profile.js"></script>
     <script src="scripts/export-utils.js"></script>
     <script src="scripts/promotor-detalhes.js"></script>
   </body>

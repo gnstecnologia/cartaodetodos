@@ -294,6 +294,56 @@
         transform: translateY(0) scale(0.98);
       }
 
+      .export-btn {
+        background: linear-gradient(135deg, var(--color-background), #13c053);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 8px rgba(15, 138, 60, 0.2);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .export-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+      }
+
+      .export-btn:hover::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .export-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 138, 60, 0.3);
+      }
+
+      .export-btn:active {
+        transform: translateY(0);
+      }
+
+      .export-btn i {
+        font-size: 1rem;
+      }
+
       .indicadores-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -405,6 +455,81 @@
         background: rgba(15, 138, 60, 0.2);
         transform: scale(1.05);
         color: var(--color-background);
+      }
+
+      .indicador-pix-row {
+        margin: 0.75rem 0 0;
+        padding: 0.65rem 0.75rem;
+        background: rgba(15, 138, 60, 0.06);
+        border-radius: 8px;
+        border: 1px solid rgba(15, 138, 60, 0.12);
+      }
+
+      .indicador-pix-label {
+        font-family: 'Inter', 'Ubuntu', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(15, 31, 19, 0.55);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .indicador-pix-line {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: space-between;
+      }
+
+      .indicador-pix-value {
+        font-family: 'Inter', 'Ubuntu', ui-monospace, monospace;
+        font-size: 0.85rem;
+        color: var(--color-dark);
+        word-break: break-all;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .btn-copy-pix {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(15, 138, 60, 0.15);
+        color: var(--color-background);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s, transform 0.15s;
+      }
+
+      .btn-copy-pix:hover {
+        background: rgba(15, 138, 60, 0.28);
+        transform: scale(1.05);
+      }
+
+      .indicador-card:hover .indicador-pix-row {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+
+      .indicador-card:hover .indicador-pix-label {
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .indicador-card:hover .indicador-pix-value {
+        color: #fff;
+      }
+
+      .indicador-card:hover .btn-copy-pix {
+        background: rgba(255, 255, 255, 0.25);
+        color: #fff;
       }
 
       .indicador-stats {

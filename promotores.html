@@ -366,6 +366,11 @@
         font-weight: 700;
         color: var(--color-dark);
         margin: 0;
+        flex: 1;
+        min-width: 0;
+        word-break: break-word;
+        line-height: 1.3;
+        padding-right: 0.75rem;
       }
 
       .promotor-rank {
@@ -376,6 +381,8 @@
         font-family: 'Inter', 'Ubuntu', sans-serif;
         font-weight: 700;
         font-size: 0.9rem;
+        flex-shrink: 0;
+        align-self: flex-start;
       }
 
       .promotor-rank.rank-1 {
@@ -694,10 +701,10 @@
             <!-- Grupo: Navegação -->
             <div class="nav-group">
               <a href="dashboard-promotores.html" class="nav-btn">
-                <i class="fas fa-chart-bar"></i> Dashboard
+                <i class="fas fa-chart-bar"></i> Dashboard Promotores
               </a>
               <a href="dashboard.html" class="nav-btn">
-                <i class="fas fa-chart-line"></i> Dashboard Geral
+                <i class="fas fa-chart-bar"></i> Dashboard
               </a>
               <a href="indicadores.html" class="nav-btn">
                 <i class="fas fa-users"></i> Indicadores
@@ -744,9 +751,6 @@
             </button>
           </div>
         </div>
-        <p id="listaPromotoresHint" style="font-size: 0.85rem; opacity: 0.85; margin: 0 0 1rem; color: var(--color-dark);">
-          Promotor = quem trabalha a venda (nome unificado na captura ou no GHL). Indicado e indicador aparecem nos detalhes de cada lead.
-        </p>
         <div class="filters-row">
           <div class="filter-group">
             <label class="filter-label">

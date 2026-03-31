@@ -19,9 +19,9 @@ function statusLegivelUi(internal) {
 
 // Função para converter formato brasileiro para Date
 function parseBrazilianDate(dateString) {
-  if (!dateString || typeof dateString !== 'string') return null;
-  
-  const trimmed = dateString.trim();
+  if (dateString == null || dateString === '') return null;
+  const trimmed = String(dateString).trim();
+  if (!trimmed) return null;
   const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
   if (match) {
     const [, dia, mes, ano, hora, minuto] = match;
@@ -170,12 +170,20 @@ async function loadPromotorData() {
       nomeEl.innerHTML = `
       <i class="fas fa-user-tie"></i>
       ${promotorData.nome}
-      <span style="display:block;font-size:0.45em;font-weight:600;opacity:0.85;margin-top:0.35rem;">
-        Promotor — nome unificado (captura ou GHL ao fechar)
-      </span>
     `;
     } else {
       console.error('Elemento promotorNome não encontrado!');
+    }
+
+    const introEl = document.getElementById('promotorLeadsIntro');
+    if (introEl) {
+      const n = allLeads.length;
+      introEl.innerHTML = `
+        <i class="fas fa-layer-group" aria-hidden="true"></i>
+        <span class="promotor-context-banner__count">${n} lead${n === 1 ? '' : 's'}</span>
+        <span class="promotor-context-banner__sep">·</span>
+        <span class="promotor-context-banner__hint">Mesmo padrão visual de <strong>Indicadores</strong> → <strong>Indicados</strong></span>
+      `;
     }
 
     // Renderiza métricas
@@ -361,63 +369,61 @@ function renderLeads() {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const pageLeads = filteredLeads.slice(startIndex, endIndex);
 
-  // Renderiza cards
+  // Renderiza cards (mesmo padrão visual de indicados.html)
   listEl.innerHTML = pageLeads.map((lead, pageIndex) => {
     const nome = lead.nome || 'Sem nome';
     const telefone = lead.telefone || 'Sem telefone';
     const status = lead.status || 'Nova Indicação';
     const statusExibir = lead.statusLegivel || statusLegivelUi(status);
-    const dataHora = lead.dataHora || '';
+    const entrouRaw = lead.dataHora || lead.createdAt || '';
+    const ganhoRaw = lead.fechadoEm || lead.fechado_em || '';
     const indicadorNome = lead.indicadorNome || '';
     const promotorNomeLead = lead.promotorNome || '';
     const statusClass = getStatusClass(status);
-    
-    // Usa ID do lead ou cria um identificador único baseado em nome e telefone
-    // Não usa index para evitar problemas com paginação
+
     const leadId = lead.id || lead.ID || `${(lead.nome || 'lead').replace(/[^a-zA-Z0-9]/g, '_')}_${(lead.telefone || '').replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+    const delay = ((currentPage - 1) * ITEMS_PER_PAGE + pageIndex) * 0.05;
+
     return `
-      <div class="lead-card">
-        <div class="lead-header">
-          <h3 class="lead-name">${nome}</h3>
+      <div class="indicado-card" style="animation-delay: ${delay}s;">
+        <div class="indicado-header">
+          <h3 class="indicado-name">${nome}</h3>
           <span class="status-badge ${statusClass}">${statusExibir}</span>
         </div>
-        <div class="lead-info">
+        <div class="indicado-info">
           <div class="info-item">
             <i class="fas fa-phone"></i>
             <span>${telefone}</span>
           </div>
-          ${dataHora ? `
-            <div class="info-item">
-              <i class="fas fa-calendar-alt"></i>
-              <span>${formatDate(dataHora)}</span>
-            </div>
-          ` : ''}
-          ${indicadorNome ? `
-            <div class="info-item">
-              <i class="fas fa-users"></i>
-              <span>Indicador: ${indicadorNome}</span>
-            </div>
-          ` : ''}
-          ${promotorNomeLead ? `
-            <div class="info-item">
-              <i class="fas fa-user-tie"></i>
-              <span>Promotor: ${promotorNomeLead}</span>
-            </div>
-          ` : ''}
-          ${lead.status === 'Fechado' ? `
-            <div class="info-item">
-              <i class="fas fa-dollar-sign" style="color: #10b981;"></i>
-              <span style="color: #10b981; font-weight: 700;">Valor: ${formatCurrency(VALOR_PLANO)}/mês</span>
-            </div>
-          ` : ''}
+          <div class="info-item">
+            <i class="fas fa-calendar-plus"></i>
+            <span>Entrou: ${entrouRaw ? formatDate(entrouRaw) : 'N/A'}</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-check-circle"></i>
+            <span>Ganho: ${ganhoRaw ? formatDate(ganhoRaw) : '—'}</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-users"></i>
+            <span>Indicador: ${indicadorNome || '—'}</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-user-tie"></i>
+            <span>Promotor: ${promotorNomeLead || '—'}</span>
+          </div>
+          ${
+            lead.status === 'Fechado'
+              ? `
+          <div class="info-item info-item--valor">
+            <i class="fas fa-dollar-sign"></i>
+            <span>Valor: ${formatCurrency(VALOR_PLANO)}/mês</span>
+          </div>`
+              : ''
+          }
         </div>
-        <div class="lead-actions">
-          <button 
-            class="timeline-btn" 
-            onclick="showTimeline('${leadId}')"
-            title="Ver timeline do lead"
-          >
+        <div class="indicado-actions">
+          <button type="button" class="action-btn" onclick='showTimeline(${JSON.stringify(String(leadId))})' title="Ver timeline do lead">
             <i class="fas fa-clock-rotate-left"></i>
             Ver Timeline
           </button>

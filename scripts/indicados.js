@@ -20,8 +20,10 @@ function parseBrazilianDate(dateString) {
 
   const trimmed = dateString.trim();
 
-  // Aceita "DD/MM/YYYY HH:mm" ou "DD/MM/YYYY HH:mm:ss"
-  const br = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  // Aceita "DD/MM/YYYY HH:mm", vírgula (pt-BR) ou "DD/MM/YYYY HH:mm:ss"
+  const br = trimmed.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
   if (br) {
     const [, dia, mes, ano, hora, minuto, segundo] = br;
     const date = new Date(
@@ -47,6 +49,18 @@ function stageLegivel(indicacao) {
   return 'Novo indicado';
 }
 
+/** Data/hora de entrada do lead (landing) — fallbacks alinhados ao `/api/dashboard`. */
+function dataEntradaIndicado(indicacao) {
+  return (
+    indicacao?.dataHora ||
+    indicacao?.['Data e Hora'] ||
+    indicacao?.['Data de Criação'] ||
+    indicacao?.novaIndicacaoEm ||
+    indicacao?.createdAt ||
+    ''
+  );
+}
+
 // Formata data para exibição
 function formatDate(dateString) {
   if (!dateString) return 'N/A';
@@ -56,7 +70,7 @@ function formatDate(dateString) {
       const trimmed = dateString.trim();
       
       // Se já está no formato brasileiro, retorna apenas data/hora sem segundos
-      const match = trimmed.match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(:\d{2})?$/);
+      const match = trimmed.match(/^(\d{2}\/\d{2}\/\d{4})[,\s]+(\d{2}:\d{2})(:\d{2})?$/);
       if (match) {
         return `${match[1]} ${match[2]}`;
       }
@@ -171,12 +185,17 @@ function processIndicadosData(data) {
   
   // Obtém nome do indicador
   const indicadorNome = indicadores[currentIndicadorId] || `Código ${currentIndicadorId}`;
-  document.getElementById('indicadorInfo').textContent = `Indicador: ${indicadorNome} (ID: ${currentIndicadorId})`;
+  document.getElementById('indicadorInfo').textContent =
+    `${indicadorNome} · ID ${currentIndicadorId}`;
   
-  // Filtra indicações do indicador
-  allIndicadosData = indicacoes.filter(indicacao => {
+  // Filtra indicações do indicador (código na URL ou UUID gravado no referral)
+  const codeFromUrl = String(currentIndicadorId).trim();
+  const expectedDbId = data.indicatorIdsByCode?.[codeFromUrl] || null;
+  allIndicadosData = indicacoes.filter((indicacao) => {
     const codigo = String(indicacao.codigoIndicacao || indicacao['Código de Indicação'] || '').trim();
-    return codigo === String(currentIndicadorId).trim();
+    if (codigo === codeFromUrl) return true;
+    if (expectedDbId && String(indicacao.indicatorId || '') === String(expectedDbId)) return true;
+    return false;
   });
 
   // Aplica filtros (a ordenação será feita dentro de applyFilters)
@@ -211,7 +230,7 @@ function applyFilters() {
 
     // Filtro de período (data inicial e/ou final)
     if (dateInicio || dateFim) {
-      const dataHora = indicacao.dataHora || indicacao['Data e Hora'] || indicacao['Data de Criação'] || '';
+      const dataHora = dataEntradaIndicado(indicacao);
       if (!dataHora) return false;
       
       try {
@@ -251,8 +270,8 @@ function applyFilters() {
     switch (sortBy) {
       case 'recentes':
         // Mais recentes primeiro
-        const dataA = parseBrazilianDate(a.dataHora || a['Data e Hora'] || a['Data de Criação'] || '');
-        const dataB = parseBrazilianDate(b.dataHora || b['Data e Hora'] || b['Data de Criação'] || '');
+        const dataA = parseBrazilianDate(dataEntradaIndicado(a));
+        const dataB = parseBrazilianDate(dataEntradaIndicado(b));
         if (!dataA && !dataB) return 0;
         if (!dataA) return 1;
         if (!dataB) return -1;
@@ -260,8 +279,8 @@ function applyFilters() {
       
       case 'antigos':
         // Mais antigos primeiro
-        const dataAOld = parseBrazilianDate(a.dataHora || a['Data e Hora'] || a['Data de Criação'] || '');
-        const dataBOld = parseBrazilianDate(b.dataHora || b['Data e Hora'] || b['Data de Criação'] || '');
+        const dataAOld = parseBrazilianDate(dataEntradaIndicado(a));
+        const dataBOld = parseBrazilianDate(dataEntradaIndicado(b));
         if (!dataAOld && !dataBOld) return 0;
         if (!dataAOld) return 1;
         if (!dataBOld) return -1;
@@ -292,8 +311,8 @@ function applyFilters() {
         const statusB = statusOrder[b.status || b.Status || 'Nova Indicação'] || 99;
         if (statusA !== statusB) return statusA - statusB;
         // Se mesmo status, ordena por data (mais recente primeiro)
-        const dataAStatus = parseBrazilianDate(a.dataHora || a['Data e Hora'] || a['Data de Criação'] || '');
-        const dataBStatus = parseBrazilianDate(b.dataHora || b['Data e Hora'] || b['Data de Criação'] || '');
+        const dataAStatus = parseBrazilianDate(dataEntradaIndicado(a));
+        const dataBStatus = parseBrazilianDate(dataEntradaIndicado(b));
         if (!dataAStatus && !dataBStatus) return 0;
         if (!dataAStatus) return 1;
         if (!dataBStatus) return -1;
@@ -367,7 +386,7 @@ function renderIndicados() {
     listEl.innerHTML = pageIndicados.map((indicacao, index) => {
     const nome = indicacao.nome || indicacao.Nome || 'Sem nome';
     const telefone = indicacao.telefone || indicacao.Telefone || 'Sem telefone';
-    const dataHora = indicacao.dataHora || indicacao['Data e Hora'] || indicacao['Data de Criação'] || '';
+    const dataHora = dataEntradaIndicado(indicacao);
     const fechadoEm = indicacao.fechadoEm || indicacao.fechado_em || '';
     const promotorNome = indicacao.promotorNome || '';
     const status = indicacao.status || indicacao.Status || 'Nova Indicação';

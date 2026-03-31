@@ -32,6 +32,20 @@ async function deleteAll(table) {
   return count ?? 0;
 }
 
+/** Migração opcional (ex.: promoters) pode não existir em todos os ambientes. */
+async function deleteAllOptional(table) {
+  try {
+    return await deleteAll(table);
+  } catch (e) {
+    const msg = e?.message || '';
+    if (/not find the table|does not exist|schema cache/i.test(msg)) {
+      console.warn(`[skip] ${table}: tabela ausente.`);
+      return 0;
+    }
+    throw e;
+  }
+}
+
 async function main() {
   // Ordem: filhos primeiro (FK)
   const steps = [
@@ -39,6 +53,7 @@ async function main() {
     ['ghl_contacts', () => deleteAll('ghl_contacts')],
     ['ghl_events', () => deleteAll('ghl_events')],
     ['referrals', () => deleteAll('referrals')],
+    ['promoters', () => deleteAllOptional('promoters')],
     ['webhook_events', () => deleteAll('webhook_events')],
     ['indicators', () => deleteAll('indicators')],
     ['audit_logs', () => deleteAll('audit_logs')],

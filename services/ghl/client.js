@@ -5,8 +5,25 @@ const GHL_API_TOKEN = process.env.GHL_API_TOKEN;
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID || 'aj3gIzF3LkjDml8i9k6e';
 const GHL_PIPELINE_ID = process.env.GHL_PIPELINE_ID || 'OtRnvqvykxy1dKiJcuKS';
 const GHL_STAGE_ID_INITIAL = process.env.GHL_STAGE_ID_INITIAL || 'd9b228db-0206-4480-a841-4fc3fbde46c8';
-const GHL_FIELD_ID_INDICATOR_CODE = process.env.GHL_FIELD_ID_INDICATOR_CODE || '8UgTjSbjJDn8z7iJqOz7';
+const GHL_FIELD_ID_INDICATOR_ID =
+  process.env.GHL_FIELD_ID_INDICATOR_ID || '8UgTjSbjJDn8z7iJqOz7';
 const GHL_FIELD_ID_INDICATOR_NAME = process.env.GHL_FIELD_ID_INDICATOR_NAME || 'mODVu3L8mo4CXadSaBzA';
+
+/** Mensagem estável para a API exibir na landing quando o GHL bloqueia telefone duplicado. */
+const GHL_DUPLICATE_PHONE_USER_MESSAGE =
+  'Este telefone já está cadastrado. Use outro número para concluir a indicação.';
+
+function createGhlDuplicatePhoneError() {
+  const e = new Error('GHL_DUPLICATE_PHONE');
+  e.code = 'GHL_DUPLICATE_PHONE';
+  e.userMessage = GHL_DUPLICATE_PHONE_USER_MESSAGE;
+  return e;
+}
+
+function isDuplicateContactGhlError(err) {
+  const msg = String(err?.data?.details?.message || err?.data?.message || err?.message || '');
+  return /duplicated contact/i.test(msg) || /does not allow duplicated/i.test(msg);
+}
 
 function getHeaders(version) {
   if (!GHL_API_TOKEN) {
@@ -45,7 +62,7 @@ async function ghlRequest(path, method = 'GET', body, version = '2021-04-15') {
   return data;
 }
 
-async function createContact({ name, phone, indicatorCode, indicatorName }) {
+async function createContact({ name, phone, indicatorId, indicatorName }) {
   return ghlRequest('/contacts/', 'POST', {
     firstName: name,
     phone,
@@ -54,8 +71,8 @@ async function createContact({ name, phone, indicatorCode, indicatorName }) {
     tags: ['indicação'],
     customFields: [
       {
-        id: GHL_FIELD_ID_INDICATOR_CODE,
-        value: indicatorCode || '',
+        id: GHL_FIELD_ID_INDICATOR_ID,
+        value: indicatorId || '',
       },
       {
         id: GHL_FIELD_ID_INDICATOR_NAME,
@@ -86,15 +103,24 @@ async function createOpportunity({ contactId, pipelineId, stageId, name, monetar
   }, '2021-04-15');
 }
 
-async function sendLeadToGhl({ referral, indicatorName }) {
+async function sendLeadToGhl({ referral, indicatorId, indicatorName }) {
   const result = { steps: {} };
 
-  const contact = await createContact({
-    name: referral.nome,
-    phone: referral.telefone,
-    indicatorCode: referral.codigo_indicacao,
-    indicatorName: indicatorName || '',
-  });
+  let contact;
+  try {
+    contact = await createContact({
+      name: referral.nome,
+      phone: referral.telefone,
+      indicatorId: indicatorId || referral.indicator_id || '',
+      indicatorName: indicatorName || '',
+    });
+  } catch (err) {
+    if (isDuplicateContactGhlError(err)) {
+      throw createGhlDuplicatePhoneError();
+    }
+    throw err;
+  }
+
   const contactId = contact.contact?.id || contact.id || contact.data?.contact?.id;
   result.steps.contact = { ok: true, contactId, raw: contact };
 
@@ -114,7 +140,7 @@ async function sendLeadToGhl({ referral, indicatorName }) {
 
     const message = messageTemplate
       .replaceAll('{{nome_indicado}}', referral.nome)
-      .replaceAll('{{nome_indicador}}', indicatorName || 'nosso parceiro');
+      .replaceAll('{{nome_indicador}}', indicatorName || 'indicador responsável');
 
     const sms = await sendSmsMessage(contactId, message);
     result.steps.message = { ok: true, raw: sms };

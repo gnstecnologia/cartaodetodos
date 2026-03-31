@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
           result.message || 'Não foi possível enviar agora. Tente novamente em instantes.',
           true
         );
+        if (response.status === 409 && telefoneInput) {
+          telefoneInput.focus();
+        }
         return;
       }
 

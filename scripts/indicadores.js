@@ -40,6 +40,35 @@ function parseBrazilianDate(dateString) {
   return isNaN(iso.getTime()) ? null : iso;
 }
 
+function escapeHtml(text) {
+  if (text == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
+function copyIndicadorPix(button) {
+  const row = button.closest('.indicador-pix-row');
+  const span = row?.querySelector('.indicador-pix-value');
+  const pix = (span?.textContent || '').trim();
+  if (!pix) return;
+  const restoreIcon = () => {
+    const i = button.querySelector('i');
+    if (i) i.className = 'fas fa-copy';
+  };
+  navigator.clipboard.writeText(pix).then(() => {
+    const i = button.querySelector('i');
+    if (i) i.className = 'fas fa-check';
+    button.setAttribute('title', 'Copiado!');
+    setTimeout(() => {
+      restoreIcon();
+      button.setAttribute('title', 'Copiar chave Pix');
+    }, 1600);
+  }).catch(() => {
+    alert('Não foi possível copiar. Copie manualmente.');
+  });
+}
+
 // Verifica autenticação
 async function checkAuth() {
   const user = await window.AuthClient.ensureAuthenticatedPage({ redirectTo: 'dashboard.html' });
@@ -140,6 +169,7 @@ function processIndicadoresData(data) {
       id: codigo,
       nome: indicador.nome || `Código ${codigo}`,
       telefone: indicador.telefone || '',
+      chavePix: String(indicador.chavePix || indicador.chave_pix || '').trim(),
       totalIndicacoes: info.indicacoes.length,
       primeiraData: info.primeiraData,
       ultimaData: info.ultimaData,
@@ -306,6 +336,18 @@ function renderIndicadores() {
       ${indicador.telefone ? `
         <div style="font-size: 0.9rem; color: rgba(15, 31, 19, 0.6); margin-bottom: 0.5rem;">
           <i class="fas fa-phone"></i> ${indicador.telefone}
+        </div>
+      ` : ''}
+      
+      ${indicador.chavePix ? `
+        <div class="indicador-pix-row" onclick="event.stopPropagation();">
+          <div class="indicador-pix-label"><i class="fas fa-qrcode"></i> Chave Pix</div>
+          <div class="indicador-pix-line">
+            <span class="indicador-pix-value">${escapeHtml(indicador.chavePix)}</span>
+            <button type="button" class="btn-copy-pix" title="Copiar chave Pix" aria-label="Copiar chave Pix" onclick="event.stopPropagation(); copyIndicadorPix(this);">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
         </div>
       ` : ''}
       

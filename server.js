@@ -205,11 +205,9 @@ function normalizeStatus(value) {
   ) {
     return 'Nova Indicação';
   }
-  if (raw === 'em contato') return 'Em Contato';
-  if (raw === 'em negociação' || raw === 'em negociacao') return 'Em Negociação';
   if (raw === 'fechado' || raw === 'ganho') return 'Fechado';
-  if (raw === 'perdido') return 'Perdido';
-  return value;
+  // Regra atual de negócio: só existem 2 estágios.
+  return 'Nova Indicação';
 }
 
 /** Rótulos de negócio: entrada na base (captura + GHL) vs ganho no webhook. */
@@ -289,20 +287,34 @@ async function getOrCreatePromotor(db, nome, explicitId = null) {
  */
 async function resolveIndicatorPatchFromWebhookPayload(db, referral, payload) {
   if (referral.indicator_id) return {};
+  const p = payload || {};
+  const c = p.customData || p.custom_data || {};
   const indicadorCode = extractIndicadorCodeFromGhlPayload(payload);
   const nomeIndicador =
     (payload['Nome Indicador'] && String(payload['Nome Indicador']).trim()) ||
     (payload['nome_indicador'] && String(payload['nome_indicador']).trim()) ||
+    (c['contact.nome_indicador'] && String(c['contact.nome_indicador']).trim()) ||
+    (c.nome_indicador && String(c.nome_indicador).trim()) ||
     null;
 
   if (indicadorCode) {
-    const { data: ind } = await db
+    const { data: indByCode } = await db
       .from('indicators')
       .select('id,code')
       .eq('code', String(indicadorCode))
       .maybeSingle();
-    if (ind) {
-      return { indicator_id: ind.id, codigo_indicacao: ind.code };
+    if (indByCode) {
+      return { indicator_id: indByCode.id, codigo_indicacao: indByCode.code };
+    }
+    if (isUuidLike(indicadorCode)) {
+      const { data: indById } = await db
+        .from('indicators')
+        .select('id,code')
+        .eq('id', String(indicadorCode).trim())
+        .maybeSingle();
+      if (indById) {
+        return { indicator_id: indById.id, codigo_indicacao: indById.code };
+      }
     }
   }
 
@@ -326,9 +338,12 @@ function extractPromotorNomeFromGhlPayload(payload) {
   const raw =
     c.promotorNome ??
     c.promotor_nome ??
+    c.promotora ??
+    c.nome_promotor ??
     c.promotor ??
     c['Nome Promotor'] ??
     p.promotorNome ??
+    p.promotora ??
     p.promotorName ??
     p.promotor ??
     p['Nome Promotor'] ??
@@ -372,6 +387,9 @@ function extractIndicadorCodeFromGhlPayload(payload) {
     p['ID Indicador'],
     p['Id Indicador'],
     p.id_indicador,
+    p['contact.id_indicador'],
+    c['contact.id_indicador'],
+    c.id_indicador,
     c.indicatorCode,
     c.codigoIndicacao,
     c.codigo_indicacao,
@@ -486,6 +504,20 @@ function buildPromotorRankingUnified(closedList) {
 
 const VALOR_PLANO_PROMOTOR = 59.99;
 
+/** Menor data de fechamento (webhook ganho): fechado_em, senão created_at do lead Fechado. */
+function earliestPrimeiroGanhoMs(leads) {
+  let min = null;
+  for (const lead of leads || []) {
+    if (lead.status !== 'Fechado') continue;
+    const raw = lead.fechadoEm || lead.createdAt;
+    if (!raw) continue;
+    const t = new Date(raw).getTime();
+    if (Number.isNaN(t)) continue;
+    if (min === null || t < min) min = t;
+  }
+  return min;
+}
+
 function aggregateReferralsByPromotor(referrals, indicatorById) {
   const emptyLabel = 'Promotor não informado';
   const grouped = new Map();
@@ -500,10 +532,7 @@ function aggregateReferralsByPromotor(referrals, indicatorById) {
         totalLeads: 0,
         leadsPorStatus: {
           'Nova Indicação': 0,
-          'Em Contato': 0,
-          'Em Negociação': 0,
           Fechado: 0,
-          Perdido: 0,
         },
         indicadores: new Set(),
         leads: [],
@@ -525,6 +554,8 @@ function aggregateReferralsByPromotor(referrals, indicatorById) {
       status,
       statusLegivel: statusLegivel(status),
       dataHora: lead.data_hora || formatBrazilianDateTime(lead.created_at),
+      createdAt: lead.created_at || null,
+      fechadoEm: lead.fechado_em || null,
       indicadorNome: indicator?.nome || lead.codigo_indicacao || '',
       promotorNome: keyRaw || '',
       promotorId: lead.promotor_id || null,
@@ -538,24 +569,23 @@ function aggregateReferralsByPromotor(referrals, indicatorById) {
       const taxaConversao = p.totalLeads
         ? Number(((leadsFechados / p.totalLeads) * 100).toFixed(1))
         : 0;
-      const taxaPerda = p.totalLeads
-        ? Number((((p.leadsPorStatus.Perdido || 0) / p.totalLeads) * 100).toFixed(1))
-        : 0;
-      const leadsContato =
-        (p.leadsPorStatus['Em Contato'] || 0) + (p.leadsPorStatus['Em Negociação'] || 0);
+      const taxaPerda = 0;
+      const leadsContato = 0;
+      const primeiroGanhoMs = earliestPrimeiroGanhoMs(p.leads);
       return {
         nome: p.nome,
         totalLeads: p.totalLeads,
         leadsPorStatus: p.leadsPorStatus,
         leadsFechados,
         leadsContato,
-        leadsPerdidos: p.leadsPorStatus.Perdido || 0,
+        leadsPerdidos: 0,
         valorGerado,
         taxaConversao,
         taxaPerda,
         indicadores: [...p.indicadores].sort(),
         numIndicadores: p.indicadores.size,
         leads: p.leads,
+        primeiraData: primeiroGanhoMs != null ? new Date(primeiroGanhoMs).toISOString() : null,
       };
     })
     .sort((a, b) => b.valorGerado - a.valorGerado || b.totalLeads - a.totalLeads);
@@ -566,12 +596,11 @@ function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechament
   const ind = referralsCreatedInFilter || [];
   const totalIndicadosNoPeriodo = ind.length;
   let fechadosEntreIndicadosDoPeriodo = 0;
-  let perdidosEntreIndicadosDoPeriodo = 0;
   for (const r of ind) {
     const s = normalizeStatus(r.status);
     if (s === 'Fechado') fechadosEntreIndicadosDoPeriodo += 1;
-    else if (s === 'Perdido') perdidosEntreIndicadosDoPeriodo += 1;
   }
+  const perdidosEntreIndicadosDoPeriodo = 0;
   const emAndamentoEntreIndicadosDoPeriodo = Math.max(
     0,
     totalIndicadosNoPeriodo - fechadosEntreIndicadosDoPeriodo - perdidosEntreIndicadosDoPeriodo,
@@ -596,18 +625,6 @@ function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechament
     taxaFechamentoSobreIndicadosPercent,
     fechamentosPorDataGanhoNoPeriodo,
     promotoresRanking,
-    legendas: {
-      cohortEntrada:
-        'Indicado = pessoa indicada. Indicadores no filtro: status atual desses leads (entrada no período).',
-      fechamentosDataGanho:
-        'Ganhos no período usam a data em que o deal foi fechado (fechado_em / webhook).',
-      promotores:
-        'Promotor = quem trabalha o lead (nome na captura ou no GHL ao ganhar). Mesma pessoa; ranking unifica os dois campos.',
-      papéis:
-        'Indicado: cliente indicado. Indicador: dono do código de indicação. Promotor: responsável pela venda.',
-      etapasLead:
-        'Novo indicado: lead criado (indicação + contato/mensagem no GHL). Ganho: o mesmo lead confirmado pelo webhook de conversão; aí gravamos promotor (custom/campo) e responsável no GHL e vinculamos o indicador se ainda faltava.',
-    },
   };
 }
 
@@ -751,7 +768,23 @@ app.post('/api/leads', async (req, res) => {
     if (error) throw error;
 
     try {
-      const ghlResult = await sendLeadToGhl({ referral, indicatorName: indicator?.nome || null });
+      let indicatorNameForGhl = indicator?.nome || null;
+      let indicatorIdForGhl = indicator?.id || referral.indicator_id || null;
+      if ((!indicatorNameForGhl || !indicatorIdForGhl) && referral.codigo_indicacao) {
+        const { data: indicatorByCode } = await supabase
+          .from('indicators')
+          .select('id,nome')
+          .eq('code', String(referral.codigo_indicacao).trim())
+          .maybeSingle();
+        indicatorNameForGhl = indicatorByCode?.nome || null;
+        indicatorIdForGhl = indicatorByCode?.id || indicatorIdForGhl;
+      }
+
+      const ghlResult = await sendLeadToGhl({
+        referral,
+        indicatorId: indicatorIdForGhl,
+        indicatorName: indicatorNameForGhl,
+      });
       const contactId = ghlResult?.steps?.contact?.contactId || null;
 
       await supabase.from('ghl_events').insert({
@@ -768,6 +801,14 @@ app.post('/api/leads', async (req, res) => {
         });
       }
     } catch (ghlError) {
+      if (ghlError.code === 'GHL_DUPLICATE_PHONE') {
+        await supabase.from('referrals').delete().eq('id', referral.id);
+        const msg =
+          ghlError.userMessage ||
+          'Este telefone já está cadastrado. Use outro número para concluir a indicação.';
+        return res.status(409).json({ ok: false, message: msg });
+      }
+
       await supabase.from('ghl_events').insert({
         referral_id: referral.id,
         event_type: 'lead_created',
@@ -822,14 +863,20 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
     const { data: indicatorRows } = await db
       .from('indicators')
-      .select('code,nome,telefone')
+      .select('id,code,nome,telefone,chave_pix')
       .eq('ativo', true)
       .order('created_at', { ascending: true });
+
+    const indicatorIdsByCode = {};
+    (indicatorRows || []).forEach((row) => {
+      if (row.code) indicatorIdsByCode[String(row.code)] = row.id;
+    });
 
     const indicadoresList = (indicatorRows || []).map((row) => ({
       id: row.code,
       nome: row.nome,
       telefone: row.telefone || '',
+      chavePix: row.chave_pix || '',
     }));
 
     const indicacoes = (referrals || []).map((row) => {
@@ -838,11 +885,14 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         id: row.id,
         nome: row.nome,
         telefone: row.telefone,
+        indicatorId: row.indicator_id || null,
         codigoIndicacao: row.codigo_indicacao || '',
         origem: row.origem || '',
         status,
         statusLegivel: statusLegivel(status),
         dataHora: row.data_hora || formatBrazilianDateTime(row.data_criacao_iso || row.created_at),
+        createdAt: row.created_at || null,
+        novaIndicacaoEm: row.nova_indicacao_em || null,
         logStatus: Array.isArray(row.log_status) ? row.log_status : [],
         responsavelNome: row.responsavel_nome || '',
         promotorNome: promotorNomeUnificado(row) || '',
@@ -856,9 +906,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       indicacoes,
       indicadores: indicators,
       indicadoresList,
+      indicatorIdsByCode,
       metricas,
-      legendasEtapas:
-        'Novo indicado = entrada na base (indicação + GHL). Ganho = webhook de conversão no mesmo lead: grava promotor, responsável no GHL e vincula indicador a partir do payload, se ainda faltava.',
     });
   } catch (error) {
     console.error('Erro ao buscar dashboard:', error);
@@ -932,10 +981,7 @@ app.post('/api/leads/:leadId/status', requireAuth, async (req, res) => {
     };
 
     if (status === 'Nova Indicação') patch.nova_indicacao_em = now;
-    if (status === 'Em Contato') patch.em_contato_em = now;
-    if (status === 'Em Negociação') patch.em_negociacao_em = now;
     if (status === 'Fechado') patch.fechado_em = now;
-    if (status === 'Perdido') patch.perdido_em = now;
 
     const { error: updateError } = await db.from('referrals').update(patch).eq('id', leadId);
     if (updateError) throw updateError;

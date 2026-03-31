@@ -195,10 +195,10 @@ function renderPromotores() {
       const leadsPorStatus = promotor.leadsPorStatus || {};
       
       return `
-        <div class="promotor-card" onclick="viewPromotorLeads(${JSON.stringify(promotor.nome || '')})" style="animation-delay: ${index * 0.05}s;">
+        <div class="promotor-card" onclick='viewPromotorLeads(${JSON.stringify(promotor.nome || '')})' style="animation-delay: ${index * 0.05}s;">
         <div class="promotor-card-header">
           <h3 class="promotor-name">${promotor.nome || 'Sem nome'}</h3>
-          <span class="promotor-rank ${rankClass}">#${rank}</span>
+          ${rank <= 3 ? `<span class="promotor-rank ${rankClass}">${rank}º</span>` : ''}
         </div>
         
         <div class="promotor-stats">
@@ -225,28 +225,10 @@ function renderPromotores() {
               Nova: ${leadsPorStatus['Nova Indicação']}
             </span>
           ` : ''}
-          ${(leadsPorStatus['Em Contato'] || 0) > 0 ? `
-            <span class="status-badge status-contato">
-              <i class="fas fa-phone"></i>
-              Contato: ${leadsPorStatus['Em Contato']}
-            </span>
-          ` : ''}
-          ${(leadsPorStatus['Em Negociação'] || 0) > 0 ? `
-            <span class="status-badge status-negociacao">
-              <i class="fas fa-handshake"></i>
-              Negociação: ${leadsPorStatus['Em Negociação']}
-            </span>
-          ` : ''}
           ${(leadsPorStatus['Fechado'] || 0) > 0 ? `
             <span class="status-badge status-fechado">
               <i class="fas fa-check-circle"></i>
               Fechado: ${leadsPorStatus['Fechado']}
-            </span>
-          ` : ''}
-          ${(leadsPorStatus['Perdido'] || 0) > 0 ? `
-            <span class="status-badge status-perdido">
-              <i class="fas fa-times-circle"></i>
-              Perdido: ${leadsPorStatus['Perdido']}
             </span>
           ` : ''}
         </div>
@@ -254,7 +236,7 @@ function renderPromotores() {
         <div class="promotor-footer">
           <span>
             <i class="fas fa-calendar-alt"></i>
-            ${promotor.primeiraData ? `Desde ${formatDate(promotor.primeiraData)}` : 'Sem histórico'}
+            ${promotor.primeiraData ? `Primeiro ganho em ${formatDate(promotor.primeiraData)}` : 'Sem histórico'}
           </span>
           ${promotor.indicadores && promotor.indicadores.length > 0 ? `
             <span>
@@ -399,27 +381,40 @@ function exportPromotoresListData(format) {
 }
 
 function viewPromotorLeads(nome) {
-  const promotor = allPromotoresData.find((p) => p.nome === nome);
-  if (!promotor) return;
+  const key = String(nome ?? '').trim();
+  if (!key) return;
 
-  sessionStorage.setItem(
-    'promotorDetalhes',
-    JSON.stringify({
-      nome: promotor.nome,
-      leads: promotor.leads,
-      metricas: {
-        totalLeads: promotor.totalLeads,
-        leadsFechados: promotor.leadsFechados,
-        valorGerado: promotor.valorGerado,
-        taxaConversao: promotor.taxaConversao,
-        taxaPerda: promotor.taxaPerda,
-        leadsPorStatus: promotor.leadsPorStatus,
-        indicadores: promotor.indicadores,
-      },
-    }),
-  );
+  const norm = (s) => String(s ?? '').trim().toLowerCase();
+  const match = (p) => norm(p.nome) === norm(key);
+  const promotor = allPromotoresData.find(match) || filteredPromotores.find(match);
 
-  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(promotor.nome)}`;
+  if (promotor) {
+    try {
+      sessionStorage.setItem(
+        'promotorDetalhes',
+        JSON.stringify({
+          nome: promotor.nome,
+          leads: promotor.leads,
+          metricas: {
+            totalLeads: promotor.totalLeads,
+            leadsFechados: promotor.leadsFechados,
+            valorGerado: promotor.valorGerado,
+            taxaConversao: promotor.taxaConversao,
+            taxaPerda: promotor.taxaPerda,
+            leadsPorStatus: promotor.leadsPorStatus,
+            indicadores: promotor.indicadores,
+          },
+        }),
+      );
+    } catch (e) {
+      console.warn('sessionStorage promotorDetalhes:', e);
+      sessionStorage.removeItem('promotorDetalhes');
+    }
+  } else {
+    sessionStorage.removeItem('promotorDetalhes');
+  }
+
+  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(key)}`;
 }
 
 // Inicialização

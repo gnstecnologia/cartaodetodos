@@ -3,6 +3,30 @@ const DASHBOARD_EMAIL = 'admin@cartaodetodos.com.br';
 const DASHBOARD_PASSWORD = 'admin123';
 const API_BASE_URL = window.API_BASE_URL || window.location.origin;
 const PROMOTORES_ENDPOINT = `${API_BASE_URL}/api/promotores`;
+const VALOR_PLANO_LEAD = 59.99;
+
+/** Parse dataHora pt-BR (com vírgula ou espaço) ou ISO; retorna Date ou null. */
+function parseLeadChartDate(raw) {
+  if (raw == null || raw === '') return null;
+  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : raw;
+  const s = String(raw).trim();
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (br) {
+    const [, dia, mes, ano, hora, minuto, segundo] = br;
+    return new Date(
+      Date.UTC(
+        parseInt(ano, 10),
+        parseInt(mes, 10) - 1,
+        parseInt(dia, 10),
+        parseInt(hora, 10) + 3,
+        parseInt(minuto, 10),
+        parseInt(segundo || '0', 10),
+      ),
+    );
+  }
+  const iso = new Date(s);
+  return Number.isNaN(iso.getTime()) ? null : iso;
+}
 
 function labelEtapaNoGrafico(statusKey) {
   if (statusKey === 'Nova Indicação') return 'Novo indicado';
@@ -221,36 +245,60 @@ function updateTimelineChart() {
   const ctx = document.getElementById('chartTimeline');
   if (!ctx) return;
 
-  // Agrupa leads por data (últimos 7 dias)
-  const last7Days = [];
-  const today = new Date();
-  
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    last7Days.push({
-      date: date.toISOString().split('T')[0],
-      leads: 0,
-      valor: 0
-    });
+  const dataInicio = document.getElementById('dateFilterInicio')?.value?.trim() || '';
+  const dataFim = document.getElementById('dateFilterFim')?.value?.trim() || '';
+
+  /** Eixos YYYY-MM-DD: período do filtro (API) ou últimos 7 dias locais. */
+  function buildDayBuckets() {
+    const buckets = [];
+    const pad = (n) => String(n).padStart(2, '0');
+    if (dataInicio && dataFim) {
+      const a = dataInicio.localeCompare(dataFim) <= 0 ? dataInicio : dataFim;
+      const b = dataInicio.localeCompare(dataFim) <= 0 ? dataFim : dataInicio;
+      let cur = a;
+      let guard = 0;
+      const maxDays = 45;
+      while (cur <= b && guard < maxDays) {
+        buckets.push({ date: cur, leads: 0, valor: 0 });
+        const [y, m, d] = cur.split('-').map((x) => parseInt(x, 10));
+        const next = new Date(Date.UTC(y, m - 1, d + 1));
+        cur = `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
+        guard += 1;
+      }
+      return buckets;
+    }
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      buckets.push({ date: dateStr, leads: 0, valor: 0 });
+    }
+    return buckets;
   }
 
-  filteredPromotoresData.forEach(promotor => {
-    promotor.leads.forEach(lead => {
-      if (lead.dataHora) {
-        try {
-          const date = new Date(lead.dataHora);
-          if (!isNaN(date.getTime())) {
-            const dateStr = date.toISOString().split('T')[0];
-            const dayData = last7Days.find(d => d.date === dateStr);
-            if (dayData) {
-              dayData.leads++;
-              if (lead.status === 'Fechado') {
-                dayData.valor += 59.99;
-              }
-            }
-          }
-        } catch {}
+  const last7Days = buildDayBuckets();
+
+  filteredPromotoresData.forEach((promotor) => {
+    promotor.leads.forEach((lead) => {
+      const entrada =
+        parseLeadChartDate(lead.dataHora) ||
+        parseLeadChartDate(lead.createdAt);
+      if (entrada) {
+        const dateStr = entrada.toISOString().split('T')[0];
+        const dayData = last7Days.find((d) => d.date === dateStr);
+        if (dayData) dayData.leads += 1;
+      }
+      if (lead.status === 'Fechado') {
+        const ganho =
+          parseLeadChartDate(lead.fechadoEm) ||
+          parseLeadChartDate(lead.fechado_em) ||
+          entrada;
+        if (ganho) {
+          const dateStrG = ganho.toISOString().split('T')[0];
+          const dayValor = last7Days.find((d) => d.date === dateStrG);
+          if (dayValor) dayValor.valor += VALOR_PLANO_LEAD;
+        }
       }
     });
   });
@@ -333,10 +381,7 @@ function updateStatusChart() {
 
   const statusData = {
     'Nova Indicação': 0,
-    'Em Contato': 0,
-    'Em Negociação': 0,
-    'Fechado': 0,
-    'Perdido': 0
+    'Fechado': 0
   };
 
   filteredPromotoresData.forEach(promotor => {
@@ -350,10 +395,7 @@ function updateStatusChart() {
   const values = keys.map((k) => statusData[k]);
   const colors = [
     'rgba(37, 99, 235, 0.8)',
-    'rgba(245, 158, 11, 0.8)',
-    'rgba(139, 92, 246, 0.8)',
-    'rgba(16, 185, 129, 0.8)',
-    'rgba(239, 68, 68, 0.8)'
+    'rgba(16, 185, 129, 0.8)'
   ];
 
   if (chartStatus) {
@@ -436,10 +478,7 @@ function updateFunilChart() {
 
   const funil = {
     'Nova Indicação': 0,
-    'Em Contato': 0,
-    'Em Negociação': 0,
-    'Fechado': 0,
-    'Perdido': 0
+    'Fechado': 0
   };
 
   filteredPromotoresData.forEach(promotor => {
@@ -448,7 +487,7 @@ function updateFunilChart() {
     });
   });
 
-  const keys = ['Nova Indicação', 'Em Contato', 'Em Negociação', 'Fechado'];
+  const keys = ['Nova Indicação', 'Fechado'];
   const labels = keys.map(labelEtapaNoGrafico);
   const values = keys.map((l) => funil[l]);
 
@@ -465,8 +504,6 @@ function updateFunilChart() {
         data: values,
         backgroundColor: [
           'rgba(37, 99, 235, 0.8)',
-          'rgba(245, 158, 11, 0.8)',
-          'rgba(139, 92, 246, 0.8)',
           'rgba(16, 185, 129, 0.8)'
         ],
       }]
@@ -506,9 +543,13 @@ function updateRanking() {
           const rank = index + 1;
           const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
           return `
-            <tr onclick="viewPromotorDetalhes(${JSON.stringify(promotor.nome)})" style="cursor: pointer;">
+            <tr onclick='viewPromotorDetalhes(${JSON.stringify(promotor.nome)})' style="cursor: pointer;">
               <td style="display: flex; justify-content: center; align-items: center;">
-                <span class="rank-badge ${rankClass}">${rank}</span>
+                ${
+                  rank <= 3
+                    ? `<span class="rank-badge ${rankClass}">Grau ${rank}º</span>`
+                    : `<span style="font-weight: 700; font-size: 1rem; color: rgba(15, 31, 19, 0.45);">${rank}</span>`
+                }
               </td>
               <td style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; overflow: visible; flex: 1;">
                 <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-dark); word-break: break-word; overflow-wrap: break-word;">
@@ -550,7 +591,39 @@ function updateRanking() {
 }
 
 function viewPromotorDetalhes(nome) {
-  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(nome)}`;
+  const key = String(nome ?? '').trim();
+  if (!key) return;
+
+  const norm = (s) => String(s ?? '').trim().toLowerCase();
+  const row = filteredPromotoresData.find((p) => norm(p.nome) === norm(key));
+
+  if (row) {
+    try {
+      sessionStorage.setItem(
+        'promotorDetalhes',
+        JSON.stringify({
+          nome: row.nome,
+          leads: row.leads,
+          metricas: {
+            totalLeads: row.totalLeads,
+            leadsFechados: row.leadsFechados,
+            valorGerado: row.valorGerado,
+            taxaConversao: row.taxaConversao,
+            taxaPerda: row.taxaPerda,
+            leadsPorStatus: row.leadsPorStatus,
+            indicadores: row.indicadores,
+          },
+        }),
+      );
+    } catch (e) {
+      console.warn('sessionStorage promotorDetalhes:', e);
+      sessionStorage.removeItem('promotorDetalhes');
+    }
+  } else {
+    sessionStorage.removeItem('promotorDetalhes');
+  }
+
+  window.location.href = `promotor-detalhes.html?promotor=${encodeURIComponent(key)}`;
 }
 
 // Inicialização

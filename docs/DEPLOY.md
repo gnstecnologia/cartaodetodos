@@ -33,8 +33,8 @@ A cada push na `main`, o workflow em `.github/workflows/deploy.yml`:
 - `GHL_LOCATION_ID`
 - `GHL_PIPELINE_ID`
 - `GHL_STAGE_ID_INITIAL`
-- `GHL_FIELD_ID_INDICATOR_CODE`
-- `GHL_FIELD_ID_INDICATOR_NAME`
+- `GHL_FIELD_ID_INDICATOR_ID` (custom `contact.id_indicador`)
+- `GHL_FIELD_ID_INDICATOR_NAME` (custom `contact.nome_indicador`)
 - `GHL_TAGS_DEFAULT`
 - `GHL_INITIAL_MESSAGE_TEMPLATE`
 - `GHL_WEBHOOK_SECRET`

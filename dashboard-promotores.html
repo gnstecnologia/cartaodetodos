@@ -676,11 +676,15 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
+        width: auto;
+        min-width: unset;
+        height: auto;
+        padding: 0.45rem 0.7rem;
+        border-radius: 999px;
         font-weight: 700;
-        font-size: 1.2rem;
+        font-size: 0.72rem;
+        line-height: 1.15;
+        white-space: nowrap;
         background: linear-gradient(135deg, var(--color-background), #13c053);
         color: white;
       }
@@ -1009,10 +1013,10 @@
           <!-- Grupo: Navegação -->
           <div class="nav-group">
             <a href="promotores.html" class="nav-btn">
-              <i class="fas fa-list"></i> Lista de Promotores
+              <i class="fas fa-trophy"></i> Promotores
             </a>
             <a href="dashboard.html" class="nav-btn">
-              <i class="fas fa-chart-line"></i> Dashboard Geral
+              <i class="fas fa-chart-bar"></i> Dashboard
             </a>
             <a href="indicadores.html" class="nav-btn">
               <i class="fas fa-users"></i> Indicadores
@@ -1118,12 +1122,12 @@
           <div class="mobile-menu-section-title">Navegação</div>
           <div class="mobile-menu-items">
             <a href="promotores.html" class="mobile-menu-item">
-              <i class="fas fa-list"></i>
-              <span>Lista de Promotores</span>
+              <i class="fas fa-trophy"></i>
+              <span>Promotores</span>
             </a>
             <a href="dashboard.html" class="mobile-menu-item">
-              <i class="fas fa-chart-line"></i>
-              <span>Dashboard Geral</span>
+              <i class="fas fa-chart-bar"></i>
+              <span>Dashboard</span>
             </a>
             <a href="indicadores.html" class="mobile-menu-item">
               <i class="fas fa-users"></i>
@@ -1165,9 +1169,7 @@
       <div id="error" class="error" style="display: none;"></div>
 
       <div id="dashboardContent" style="display: none;">
-        <p id="dashPromotoresViewHint" style="font-size: 0.85rem; opacity: 0.85; margin: 0 0 1.25rem; color: var(--color-dark); max-width: 52rem;">
-          Indicado: cliente indicado. Indicador: dono do código de indicação. Promotor: quem trabalha a venda (nome unificado na captura ou no GHL ao fechar).
-        </p>
+        <p id="dashPromotoresViewHint" style="display: none;"></p>
 
         <!-- Cards de Métricas Principais -->
         <div class="stats-row">
