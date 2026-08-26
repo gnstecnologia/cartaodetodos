@@ -498,11 +498,62 @@ function buildPromotorRankingUnified(closedList) {
       fechados,
       percentualSobreFechamentosNoPeriodo:
         total > 0 ? Number(((fechados / total) * 100).toFixed(1)) : 0,
+      valorGerado: Number((fechados * VALOR_PLANO_PROMOTOR).toFixed(2)),
     }))
     .sort((a, b) => b.fechados - a.fechados);
 }
 
 const VALOR_PLANO_PROMOTOR = 59.99;
+
+/** Ranking de promotores com taxa e valor a partir do cohort (todas as indicações do filtro). */
+function buildPromotorRankingFromCohort(referrals, indicatorById) {
+  return aggregateReferralsByPromotor(referrals, indicatorById).map((p) => ({
+    nome: p.nome,
+    fechados: p.leadsFechados,
+    totalLeads: p.totalLeads,
+    valorGerado: p.valorGerado,
+    taxaConversao: p.taxaConversao,
+    percentualSobreFechamentosNoPeriodo: 0,
+  }));
+}
+
+/** Ranking de indicadores com volume, ganhos, taxa e comissão. */
+function buildIndicadoresRanking(referrals, indicatorById) {
+  const grouped = new Map();
+  for (const lead of referrals || []) {
+    const indicator = lead.indicator_id ? indicatorById.get(lead.indicator_id) : null;
+    const code = String(indicator?.code || lead.codigo_indicacao || '').trim() || 'sem-codigo';
+    const nome = indicator?.nome || lead.codigo_indicacao || 'Indicador sem nome';
+    if (!grouped.has(code)) {
+      grouped.set(code, { codigo: code, nome, totalIndicados: 0, ganhos: 0 });
+    }
+    const bucket = grouped.get(code);
+    bucket.totalIndicados += 1;
+    if (normalizeStatus(lead.status) === 'Fechado') bucket.ganhos += 1;
+  }
+  return [...grouped.values()]
+    .map((row) => {
+      const taxaConversao = row.totalIndicados
+        ? Number(((row.ganhos / row.totalIndicados) * 100).toFixed(1))
+        : 0;
+      const comissaoTotal = Number((row.ganhos * VALOR_PLANO_PROMOTOR).toFixed(2));
+      return { ...row, taxaConversao, comissaoTotal };
+    })
+    .sort((a, b) => b.comissaoTotal - a.comissaoTotal || b.totalIndicados - a.totalIndicados);
+}
+
+function filterReferralsByIndicador(referrals, indicatorById, indicadorFilter) {
+  const raw = String(indicadorFilter || '').trim();
+  if (!raw) return referrals || [];
+  const rawLower = raw.toLowerCase();
+  return (referrals || []).filter((lead) => {
+    const indicator = lead.indicator_id ? indicatorById.get(lead.indicator_id) : null;
+    const code = String(indicator?.code || lead.codigo_indicacao || '').trim();
+    const id = String(lead.indicator_id || indicator?.id || '').trim();
+    const nome = String(indicator?.nome || '').trim().toLowerCase();
+    return code === raw || id === raw || nome === rawLower;
+  });
+}
 
 /** Menor data de fechamento (webhook ganho): fechado_em, senão created_at do lead Fechado. */
 function earliestPrimeiroGanhoMs(leads) {
@@ -592,7 +643,7 @@ function aggregateReferralsByPromotor(referrals, indicatorById) {
 }
 
 /** Métricas: cohort por data de entrada vs fechamentos por fechado_em (ganho/webhook). */
-function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechamentoPeriod) {
+function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechamentoPeriod, indicatorById = new Map()) {
   const ind = referralsCreatedInFilter || [];
   const totalIndicadosNoPeriodo = ind.length;
   let fechadosEntreIndicadosDoPeriodo = 0;
@@ -600,10 +651,9 @@ function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechament
     const s = normalizeStatus(r.status);
     if (s === 'Fechado') fechadosEntreIndicadosDoPeriodo += 1;
   }
-  const perdidosEntreIndicadosDoPeriodo = 0;
   const emAndamentoEntreIndicadosDoPeriodo = Math.max(
     0,
-    totalIndicadosNoPeriodo - fechadosEntreIndicadosDoPeriodo - perdidosEntreIndicadosDoPeriodo,
+    totalIndicadosNoPeriodo - fechadosEntreIndicadosDoPeriodo,
   );
   const taxaFechamentoSobreIndicadosPercent =
     totalIndicadosNoPeriodo > 0
@@ -614,17 +664,29 @@ function buildDashboardMetricas(referralsCreatedInFilter, closedRowsForFechament
     (r) => normalizeStatus(r.status) === 'Fechado',
   );
   const fechamentosPorDataGanhoNoPeriodo = closedList.length;
+  const comissaoTotalPeriodo = Number((fechamentosPorDataGanhoNoPeriodo * VALOR_PLANO_PROMOTOR).toFixed(2));
 
-  const promotoresRanking = buildPromotorRankingUnified(closedList);
+  const promotoresRanking = buildPromotorRankingFromCohort(ind, indicatorById);
+  const totalFechadosCohort = fechadosEntreIndicadosDoPeriodo;
+  for (const row of promotoresRanking) {
+    row.percentualSobreFechamentosNoPeriodo =
+      totalFechadosCohort > 0
+        ? Number(((row.fechados / totalFechadosCohort) * 100).toFixed(1))
+        : 0;
+  }
+
+  const indicadoresRanking = buildIndicadoresRanking(ind, indicatorById);
 
   return {
     totalIndicadosNoPeriodo,
     fechadosEntreIndicadosDoPeriodo,
-    perdidosEntreIndicadosDoPeriodo,
     emAndamentoEntreIndicadosDoPeriodo,
     taxaFechamentoSobreIndicadosPercent,
     fechamentosPorDataGanhoNoPeriodo,
+    comissaoTotalPeriodo,
+    valorPlano: VALOR_PLANO_PROMOTOR,
     promotoresRanking,
+    indicadoresRanking,
   };
 }
 
@@ -828,7 +890,7 @@ app.post('/api/leads', async (req, res) => {
 app.get('/api/dashboard', requireAuth, async (req, res) => {
   try {
     const db = req.userClient;
-    const { dataInicio, dataFim } = req.query;
+    const { dataInicio, dataFim, indicador } = req.query;
 
     // select('*') evita erro 500 se a coluna promotor_nome ainda não existir no banco (migração pendente).
     let query = db.from('referrals').select('*');
@@ -840,8 +902,13 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       query = query.lte('created_at', `${dataFim}T23:59:59.999Z`);
     }
 
-    const { data: referrals, error } = await query.order('created_at', { ascending: false });
+    const { data: referralsRaw, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
+
+    const { data: indicatorsData } = await db.from('indicators').select('id,nome,code');
+    const indicatorById = new Map((indicatorsData || []).map((i) => [i.id, i]));
+
+    const referrals = filterReferralsByIndicador(referralsRaw || [], indicatorById, indicador);
 
     let closedQuery = db.from('referrals').select('*').not('fechado_em', 'is', null);
     if (dataInicio) {
@@ -850,10 +917,11 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     if (dataFim) {
       closedQuery = closedQuery.lte('fechado_em', `${dataFim}T23:59:59.999Z`);
     }
-    const { data: closedRows, error: closedErr } = await closedQuery;
+    const { data: closedRowsRaw, error: closedErr } = await closedQuery;
     if (closedErr) throw closedErr;
+    const closedRows = filterReferralsByIndicador(closedRowsRaw || [], indicatorById, indicador);
 
-    const metricas = buildDashboardMetricas(referrals || [], closedRows || []);
+    const metricas = buildDashboardMetricas(referrals, closedRows, indicatorById);
 
     const indicators = {};
     const { data: indicatorsMapRows } = await db.from('indicators').select('code,nome').eq('ativo', true);
@@ -881,6 +949,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
     const indicacoes = (referrals || []).map((row) => {
       const status = normalizeStatus(row.status);
+      const isFechado = status === 'Fechado';
       return {
         id: row.id,
         nome: row.nome,
@@ -898,6 +967,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         promotorNome: promotorNomeUnificado(row) || '',
         fechadoEm: row.fechado_em || null,
         perdidoEm: row.perdido_em || null,
+        valorComissao: isFechado ? VALOR_PLANO_PROMOTOR : 0,
       };
     });
 
@@ -908,6 +978,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       indicadoresList,
       indicatorIdsByCode,
       metricas,
+      valorPlano: VALOR_PLANO_PROMOTOR,
     });
   } catch (error) {
     console.error('Erro ao buscar dashboard:', error);
@@ -918,24 +989,33 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 app.get('/api/promotores', requireAuth, async (req, res) => {
   try {
     const db = req.userClient;
-    const { dataInicio, dataFim } = req.query;
+    const { dataInicio, dataFim, indicador } = req.query;
 
     let query = db.from('referrals').select('*');
 
     if (dataInicio) query = query.gte('created_at', `${dataInicio}T00:00:00.000Z`);
     if (dataFim) query = query.lte('created_at', `${dataFim}T23:59:59.999Z`);
 
-    const { data: referrals, error } = await query;
+    const { data: referralsRaw, error } = await query;
     if (error) throw error;
 
     const { data: indicatorsData } = await db.from('indicators').select('id,nome,code');
     const indicatorById = new Map((indicatorsData || []).map((i) => [i.id, i]));
 
-    const promotores = aggregateReferralsByPromotor(referrals, indicatorById);
+    const referrals = filterReferralsByIndicador(referralsRaw || [], indicatorById, indicador);
+    const promotores = aggregateReferralsByPromotor(referrals, indicatorById).map((p) => {
+      const { taxaPerda, leadsPerdidos, leadsContato, ...rest } = p;
+      return rest;
+    });
+
+    const indicadoresOptions = (indicatorsData || [])
+      .map((i) => ({ id: i.code, nome: i.nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
     res.json({
       ok: true,
       promotores,
+      indicadoresOptions,
       valorPlano: VALOR_PLANO_PROMOTOR,
       legendas: {
         promotores:

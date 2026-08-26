@@ -160,6 +160,8 @@ async function loadDashboard() {
     const params = new URLSearchParams();
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
+    const indicador = document.getElementById('indicadorFilter')?.value || '';
+    if (indicador) params.append('indicador', indicador);
     if (params.toString()) url += '?' + params.toString();
 
     const response = await fetch(url, { credentials: 'include' });
@@ -177,6 +179,7 @@ async function loadDashboard() {
     if (data.indicadores && typeof data.indicadores === 'object') {
       INDICADORES = data.indicadores;
     }
+    populateIndicadorFilter(data.indicadoresList || [], indicador);
 
     // Processa os dados
     processDashboardData(data);
@@ -223,9 +226,38 @@ function applyDateFilter() {
 function clearDateFilter() {
   const dateFilterInicio = document.getElementById('dateFilterInicio');
   const dateFilterFim = document.getElementById('dateFilterFim');
+  const indicadorFilter = document.getElementById('indicadorFilter');
   if (dateFilterInicio) dateFilterInicio.value = '';
   if (dateFilterFim) dateFilterFim.value = '';
+  if (indicadorFilter) indicadorFilter.value = '';
   applyDateFilter();
+}
+
+function formatCurrencyBrl(value) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
+}
+
+function populateIndicadorFilter(list, selected) {
+  const select = document.getElementById('indicadorFilter');
+  if (!select) return;
+  const current = selected || select.value || '';
+  const options = ['<option value="">Todos</option>']
+    .concat(
+      (list || [])
+        .slice()
+        .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'))
+        .map(
+          (item) =>
+            `<option value="${escapeHtmlDash(item.id)}"${String(item.id) === String(current) ? ' selected' : ''}>${escapeHtmlDash(item.nome)} (${escapeHtmlDash(item.id)})</option>`,
+        ),
+    );
+  select.innerHTML = options.join('');
+}
+
+function refreshPromotoresRanking() {
+  if (allIndicacoesData?.metricas) {
+    updateMetricasAvancadas(allIndicacoesData.metricas);
+  }
 }
 
 // Exporta dados do dashboard
@@ -313,35 +345,50 @@ function processFilteredData(data) {
     return;
   }
 
-  // Agrupa indicações por código
-  const indicacoesPorCodigo = {};
-  let totalIndicacoes = 0;
+  const indicadoresRanking = Array.isArray(data.metricas?.indicadoresRanking)
+    ? data.metricas.indicadoresRanking
+    : [];
 
-  if (data.indicacoes && Array.isArray(data.indicacoes)) {
+  let ranking = indicadoresRanking.map((row) => ({
+    codigo: row.codigo,
+    nome: row.nome || getNomeIndicador(row.codigo),
+    count: row.totalIndicados || 0,
+    ganhos: row.ganhos || 0,
+    taxaConversao: row.taxaConversao || 0,
+    comissaoTotal: row.comissaoTotal || 0,
+  }));
+
+  if (ranking.length === 0 && data.indicacoes) {
+    const indicacoesPorCodigo = {};
     data.indicacoes.forEach((indicacao) => {
       const codigo = indicacao.codigoIndicacao || indicacao['Código de Indicação'] || 'Sem código';
       if (!indicacoesPorCodigo[codigo]) {
-        indicacoesPorCodigo[codigo] = 0;
+        indicacoesPorCodigo[codigo] = { count: 0, ganhos: 0 };
       }
-      indicacoesPorCodigo[codigo]++;
-      totalIndicacoes++;
+      indicacoesPorCodigo[codigo].count += 1;
+      if ((indicacao.status || '') === 'Fechado' || (indicacao.statusLegivel || '') === 'Ganho') {
+        indicacoesPorCodigo[codigo].ganhos += 1;
+      }
     });
+    const valorPlano = data.valorPlano || data.metricas?.valorPlano || 59.99;
+    ranking = Object.entries(indicacoesPorCodigo)
+      .map(([codigo, info]) => ({
+        codigo,
+        nome: getNomeIndicador(codigo),
+        count: info.count,
+        ganhos: info.ganhos,
+        taxaConversao: info.count ? Number(((info.ganhos / info.count) * 100).toFixed(1)) : 0,
+        comissaoTotal: Number((info.ganhos * valorPlano).toFixed(2)),
+      }))
+      .sort((a, b) => b.comissaoTotal - a.comissaoTotal || b.count - a.count);
   }
 
-  // Cria ranking ordenado com nomes dos indicadores
-  const ranking = Object.entries(indicacoesPorCodigo)
-    .map(([codigo, count]) => ({ 
-      codigo, 
-      nome: getNomeIndicador(codigo),
-      count 
-    }))
-    .sort((a, b) => b.count - a.count);
-
+  const totalIndicacoes = ranking.reduce((sum, item) => sum + item.count, 0);
   const media = ranking.length > 0 ? Math.round(totalIndicacoes / ranking.length) : 0;
   const elInd = document.getElementById('totalIndicados');
   const elInds = document.getElementById('totalIndicadores');
   const elMed = document.getElementById('mediaIndicadores');
-  if (elInd) elInd.textContent = totalIndicacoes;
+  if (elInd) elInd.textContent = data.metricas?.totalIndicadosNoPeriodo ?? totalIndicacoes;
   if (elInds) elInds.textContent = ranking.length;
   if (elMed) elMed.textContent = media;
 
@@ -349,26 +396,17 @@ function processFilteredData(data) {
   if (metaInd) {
     metaInd.textContent =
       ranking.length > 0
-        ? `${ranking.length} indicador${ranking.length !== 1 ? 'es' : ''} · média ${media} por indicador`
+        ? ranking.length + ' indicador' + (ranking.length !== 1 ? 'es' : '') + ' · média ' + media + ' por indicador'
         : 'Sem indicações no período filtrado';
   }
 
   rankingBody.innerHTML = '';
 
   if (ranking.length === 0) {
-    rankingBody.innerHTML = `
-      <tr>
-        <td colspan="3" style="grid-column: 1 / -1; text-align: center; padding: 3rem 2rem; color: rgba(15, 31, 19, 0.5); display: flex; flex-direction: column; align-items: center; gap: 1rem;">
-          <i class="fas fa-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
-          <span>Nenhum indicado encontrado ainda.</span>
-        </td>
-      </tr>
-    `;
+    rankingBody.innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:3rem 2rem;color:rgba(15,31,19,0.5);">Nenhum indicado encontrado ainda.</td></tr>';
   } else {
-    // Limita a exibição aos top 5 indicadores (SEMPRE apenas 5)
     const top5Ranking = ranking.slice(0, 5);
-    
-    // Garante que nunca mais de 5 itens sejam renderizados
     for (let i = 0; i < Math.min(top5Ranking.length, 5); i++) {
       const item = top5Ranking[i];
       const row = document.createElement('tr');
@@ -378,36 +416,21 @@ function processFilteredData(data) {
       else if (rank === 2) rankClass = 'rank-2';
       else if (rank === 3) rankClass = 'rank-3';
 
-      row.innerHTML = `
-        <td>
-          <span class="rank-badge ${rankClass}">${rank}</span>
-        </td>
-        <td>
-          <span class="indicador-name">
-            <i class="fas fa-user"></i>
-            ${item.nome}
-          </span>
-          <div class="indicador-code">
-            <i class="fas fa-hashtag"></i>
-            <span>Código: ${item.codigo}</span>
-          </div>
-        </td>
-        <td>
-          <span class="count-badge">
-            <i class="fas fa-hand-pointer"></i>
-            ${item.count} ${item.count !== 1 ? 'indicados' : 'indicado'}
-          </span>
-        </td>
-      `;
+      row.innerHTML =
+        '<td><span class="rank-badge ' + rankClass + '">' + rank + '</span></td>' +
+        '<td><span class="indicador-name"><i class="fas fa-user"></i> ' + escapeHtmlDash(item.nome) + '</span>' +
+        '<div class="indicador-code"><i class="fas fa-hashtag"></i> <span>' + escapeHtmlDash(item.codigo) + '</span></div></td>' +
+        '<td style="text-align:center;font-weight:700;">' + item.count + '</td>' +
+        '<td style="text-align:center;font-weight:700;">' + item.ganhos + '</td>' +
+        '<td style="text-align:center;font-weight:700;">' + item.taxaConversao + '%</td>' +
+        '<td style="text-align:right;font-weight:800;color:#0f8a3c;">' + formatCurrencyBrl(item.comissaoTotal) + '</td>';
       rankingBody.appendChild(row);
     }
   }
 
-  // Atualiza gráficos
   updateCharts(data, ranking);
   updateMetricasAvancadas(data.metricas);
 }
-
 
 function updateMetricasAvancadas(m) {
   if (!m) return;
@@ -416,39 +439,49 @@ function updateMetricasAvancadas(m) {
     if (el) el.textContent = val;
   };
   set('metricFechadosCohort', String(m.fechadosEntreIndicadosDoPeriodo ?? 0));
-  set('metricTaxaFechamento', `${m.taxaFechamentoSobreIndicadosPercent ?? 0}%`);
+  set('metricTaxaFechamento', (m.taxaFechamentoSobreIndicadosPercent ?? 0) + '%');
   set('metricFechamentosDataGanho', String(m.fechamentosPorDataGanhoNoPeriodo ?? 0));
+  set('metricComissaoTotal', formatCurrencyBrl(m.comissaoTotalPeriodo ?? 0));
+
+  const metric = document.getElementById('promotorRankingMetric')?.value || 'valor';
+  const rows = [...(m.promotoresRanking || [])].sort((a, b) => {
+    if (metric === 'conversao') {
+      return (b.taxaConversao || 0) - (a.taxaConversao || 0) || (b.fechados || 0) - (a.fechados || 0);
+    }
+    return (b.valorGerado || 0) - (a.valorGerado || 0) || (b.fechados || 0) - (a.fechados || 0);
+  });
 
   const legProm = document.getElementById('legendaPromotoresRanking');
-  if (legProm) legProm.textContent = '';
+  if (legProm) {
+    legProm.textContent =
+      metric === 'conversao'
+        ? 'Ordenado por taxa de conversão (ganhos ÷ leads do período).'
+        : 'Ordenado por valor gerado (R$ 59,99 × ganhos).';
+  }
 
-  const fillRankingTbody = (tbodyId, rows, emptyMsg) => {
-    const tbody = document.getElementById(tbodyId);
-    if (!tbody) return;
-    if (!rows || rows.length === 0) {
-      tbody.innerHTML = `
-        <tr><td colspan="3" style="text-align:center;padding:1.5rem;opacity:0.7;">
-          ${emptyMsg}
-        </td></tr>`;
-      return;
+  const tbody = document.getElementById('promotoresRankingTableBody');
+  if (tbody) {
+    if (!rows.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" style="text-align:center;padding:1.5rem;opacity:0.7;">Nenhum vendedor no período filtrado.</td></tr>';
+    } else {
+      tbody.innerHTML = rows
+        .slice(0, 10)
+        .map((r) => {
+          const taxaClass = metric === 'conversao' ? 'metric-highlight' : 'metric-muted';
+          const valorClass = metric === 'valor' ? 'metric-highlight' : 'metric-muted';
+          return (
+            '<tr>' +
+            '<td>' + escapeHtmlDash(r.nome) + '</td>' +
+            '<td style="text-align:center;font-weight:700;">' + (r.fechados ?? 0) + '</td>' +
+            '<td style="text-align:center;" class="' + taxaClass + '">' + (r.taxaConversao ?? 0) + '%</td>' +
+            '<td style="text-align:right;" class="' + valorClass + '">' + formatCurrencyBrl(r.valorGerado) + '</td>' +
+            '</tr>'
+          );
+        })
+        .join('');
     }
-    tbody.innerHTML = rows
-      .map(
-        (r) => `
-        <tr>
-          <td>${escapeHtmlDash(r.nome)}</td>
-          <td style="text-align:center;font-weight:700;">${r.fechados}</td>
-          <td style="text-align:center;">${r.percentualSobreFechamentosNoPeriodo}%</td>
-        </tr>`,
-      )
-      .join('');
-  };
-
-  fillRankingTbody(
-    'promotoresRankingTableBody',
-    m.promotoresRanking,
-    'Nenhum fechamento no período ou promotor não informado.',
-  );
+  }
 
   updateStatusFunilChart(m);
 }
@@ -464,7 +497,6 @@ function updateStatusFunilChart(metricas) {
   if (!ctx || !metricas) return;
 
   const f = metricas.fechadosEntreIndicadosDoPeriodo || 0;
-  const p = metricas.perdidosEntreIndicadosDoPeriodo || 0;
   const e = metricas.emAndamentoEntreIndicadosDoPeriodo || 0;
 
   if (chartStatusFunil) {
@@ -474,14 +506,13 @@ function updateStatusFunilChart(metricas) {
   chartStatusFunil = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Ganhos', 'Perdidos', 'Em andamento'],
+      labels: ['Ganhos', 'Em andamento'],
       datasets: [
         {
-          data: [f, p, e],
+          data: [f, e],
           backgroundColor: [
             'rgba(15, 138, 60, 0.92)',
-            'rgba(192, 48, 48, 0.88)',
-            'rgba(90, 110, 120, 0.55)',
+            'rgba(90, 110, 120, 0.45)',
           ],
           borderWidth: 3,
           borderColor: '#ffffff',
@@ -501,7 +532,7 @@ function updateStatusFunilChart(metricas) {
           callbacks: {
             label(ctx) {
               const v = ctx.raw || 0;
-              const sum = f + p + e;
+              const sum = f + e;
               const pct = sum ? ((v / sum) * 100).toFixed(1) : 0;
               return ` ${ctx.label}: ${v} (${pct}%)`;
             },

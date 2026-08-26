@@ -13,6 +13,7 @@
     />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dashboard-shared.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
       window.API_BASE_URL = window.location.origin;
@@ -983,7 +984,7 @@
       }
     </style>
   </head>
-  <body>
+  <body class="dashboard-body">
     <div class="site-header">
       <div class="site-header__logo">
         <img src="LOGO.webp" alt="Cartão de Todos" />
@@ -1069,13 +1070,13 @@
             <label class="filter-label">
               <i class="fas fa-calendar-alt"></i> Período - De
             </label>
-            <input type="date" id="dateFilterInicio" class="filter-input" onchange="applyFilters()" />
+            <input type="date" id="dateFilterInicio" class="filter-input" onchange="loadDashboard()" />
           </div>
           <div class="filter-group">
             <label class="filter-label">
               <i class="fas fa-calendar-check"></i> Período - Até
             </label>
-            <input type="date" id="dateFilterFim" class="filter-input" onchange="applyFilters()" />
+            <input type="date" id="dateFilterFim" class="filter-input" onchange="loadDashboard()" />
           </div>
           <div class="filter-group">
             <label class="filter-label">
@@ -1085,12 +1086,20 @@
           </div>
           <div class="filter-group">
             <label class="filter-label">
-              <i class="fas fa-sort"></i> Ordenar por
+              <i class="fas fa-user"></i> Indicador
+            </label>
+            <select id="indicadorFilter" class="filter-select" onchange="loadDashboard()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-sort"></i> Ranking por
             </label>
             <select id="sortFilter" class="filter-select" onchange="applyFilters()">
               <option value="valor">Valor Gerado</option>
-              <option value="leads">Total de Leads</option>
               <option value="conversao">Taxa de Conversão</option>
+              <option value="leads">Total de Leads</option>
               <option value="nome">Nome</option>
             </select>
           </div>

@@ -13,6 +13,7 @@
     />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dashboard-shared.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
       // Configuração da API - usa a origem atual (funciona local e produção)
@@ -1762,7 +1763,7 @@
       }
     </style>
   </head>
-  <body>
+  <body class="dashboard-body">
     <!-- Tela de Login -->
     <div id="loginScreen" class="login-container">
       <div class="login-card">
@@ -2008,6 +2009,12 @@
                     onchange="applyDateFilter()"
                   />
                 </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <label style="font-size: 0.9rem; color: rgba(15, 31, 19, 0.7);"><i class="fas fa-user"></i> Indicador:</label>
+                  <select id="indicadorFilter" class="filter-select ranking-metric-select" onchange="applyDateFilter()">
+                    <option value="">Todos</option>
+                  </select>
+                </div>
                 <button 
                   onclick="clearDateFilter()" 
                   class="clear-filter-btn"
@@ -2082,7 +2089,7 @@
                   <div class="stat-info">
                     <p class="stat-label">Fechados (entrada no filtro)</p>
                     <p class="stat-value" id="metricFechadosCohort">0</p>
-                    <p class="stat-trend stat-trend--kpi">Status atual · perdidos e abertos no gráfico</p>
+                    <p class="stat-trend stat-trend--kpi">Status atual · abertos no gráfico</p>
                   </div>
                 </div>
               </div>
@@ -2095,6 +2102,18 @@
                     <p class="stat-label">Ganhos no período</p>
                     <p class="stat-value" id="metricFechamentosDataGanho">0</p>
                     <p class="stat-trend stat-trend--kpi">Pela data do fechamento (ganho)</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card stat-card--kpi kpi-comissao animate-fade-in">
+                <div class="stat-content">
+                  <div class="stat-icon-wrapper stat-icon-wrapper--sm">
+                    <i class="fas fa-coins stat-icon" style="color: #0f8a3c;"></i>
+                  </div>
+                  <div class="stat-info">
+                    <p class="stat-label">Comissão total</p>
+                    <p class="stat-value" id="metricComissaoTotal">R$ 0,00</p>
+                    <p class="stat-trend stat-trend--kpi">R$ 59,99 × ganhos no período</p>
                   </div>
                 </div>
               </div>
@@ -2111,25 +2130,32 @@
                     <i class="fas fa-chart-pie chart-title-icon"></i>
                     <div>
                       <h3 class="chart-title">Funil do período</h3>
-                      <span class="chart-subtitle">Indicados: fechados, perdidos e em andamento</span>
+                      <span class="chart-subtitle">Indicados: ganhos e em andamento</span>
                     </div>
                   </div>
                 </div>
                 <canvas id="chartStatusFunil"></canvas>
               </div>
               <div class="ranking-section ranking-section--compact animate-slide-up">
-                <div class="section-title-group">
-                  <i class="fas fa-user-tie section-title-icon"></i>
-                  <h2 class="section-title">Promotores — ganhos no período</h2>
+                <div class="ranking-section-header">
+                  <div class="section-title-group">
+                    <i class="fas fa-user-tie section-title-icon"></i>
+                    <h2 class="section-title">Ranking de vendedores</h2>
+                  </div>
+                  <select id="promotorRankingMetric" class="filter-select ranking-metric-select" onchange="refreshPromotoresRanking()">
+                    <option value="valor">Valor gerado</option>
+                    <option value="conversao">Taxa de conversão</option>
+                  </select>
                 </div>
                 <p id="legendaPromotoresRanking" class="table-hint"></p>
                 <div class="table-wrapper">
                   <table class="ranking-table">
                     <thead>
                       <tr>
-                        <th>Promotor</th>
+                        <th>Vendedor</th>
                         <th>Ganhos</th>
-                        <th>%</th>
+                        <th>Taxa</th>
+                        <th>Valor</th>
                       </tr>
                     </thead>
                     <tbody id="promotoresRankingTableBody"></tbody>
@@ -2179,7 +2205,10 @@
                       <tr>
                         <th>Pos.</th>
                         <th>Nome</th>
-                        <th>Qtd.</th>
+                        <th>Indicados</th>
+                        <th>Ganhos</th>
+                        <th>Taxa</th>
+                        <th>Comissão</th>
                       </tr>
                     </thead>
                     <tbody id="rankingBody"></tbody>

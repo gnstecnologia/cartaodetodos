@@ -774,7 +774,7 @@
               type="date" 
               id="dateFilterInicio" 
               class="filter-input"
-              onchange="applyFilters()"
+              onchange="loadPromotores()"
             />
           </div>
           <div class="filter-group">
@@ -786,8 +786,19 @@
               type="date" 
               id="dateFilterFim" 
               class="filter-input"
-              onchange="applyFilters()"
+              onchange="loadPromotores()"
             />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">
+              <i class="fas fa-sort"></i>
+              Ordenar por
+            </label>
+            <select id="sortFilter" class="filter-select" onchange="applyFilters()">
+              <option value="valor">Valor Gerado</option>
+              <option value="conversao">Taxa de Conversão</option>
+              <option value="leads">Total de Leads</option>
+            </select>
           </div>
           <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
             <button class="filter-btn" onclick="applyFilters()">

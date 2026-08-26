@@ -142,8 +142,12 @@ function applyFilters() {
     return true;
   });
 
-  // Mantém ordenação por valor gerado
-  filteredPromotores.sort((a, b) => (b.valorGerado || 0) - (a.valorGerado || 0));
+  const sortBy = document.getElementById('sortFilter')?.value || 'valor';
+  filteredPromotores.sort((a, b) => {
+    if (sortBy === 'conversao') return (b.taxaConversao || 0) - (a.taxaConversao || 0);
+    if (sortBy === 'leads') return (b.totalLeads || 0) - (a.totalLeads || 0);
+    return (b.valorGerado || 0) - (a.valorGerado || 0);
+  });
 
   currentPage = 1;
   renderPromotores();
@@ -208,6 +212,13 @@ function renderPromotores() {
               Valor Gerado
             </span>
             <span class="stat-value valor-gerado-value">${formatCurrency(promotor.valorGerado || 0)}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">
+              <i class="fas fa-percentage"></i>
+              Taxa de Conversão
+            </span>
+            <span class="stat-value">${promotor.taxaConversao || 0}%</span>
           </div>
           <div class="stat-item">
             <span class="stat-label">

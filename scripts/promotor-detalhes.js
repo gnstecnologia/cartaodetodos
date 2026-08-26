@@ -246,13 +246,6 @@ function renderMetricas() {
       </div>
       <div class="metrica-value">${metricas.taxaConversao}%</div>
     </div>
-    <div class="metrica-card">
-      <div class="metrica-label">
-        <i class="fas fa-times-circle"></i>
-        Taxa de Perda
-      </div>
-      <div class="metrica-value">${metricas.taxaPerda}%</div>
-    </div>
         ${metricas.indicadores && metricas.indicadores.length > 0 ? `
           <div class="metrica-card">
             <div class="metrica-label">

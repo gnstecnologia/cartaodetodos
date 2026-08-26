@@ -171,9 +171,19 @@ function processIndicadoresData(data) {
       telefone: indicador.telefone || '',
       chavePix: String(indicador.chavePix || indicador.chave_pix || '').trim(),
       totalIndicacoes: info.indicacoes.length,
+      ganhos: info.indicacoes.filter((i) => (i.status || '') === 'Fechado' || (i.statusLegivel || '') === 'Ganho').length,
       primeiraData: info.primeiraData,
       ultimaData: info.ultimaData,
       indicacoes: info.indicacoes
+    };
+  }).map((row) => {
+    const taxaConversao = row.totalIndicacoes
+      ? Number(((row.ganhos / row.totalIndicacoes) * 100).toFixed(1))
+      : 0;
+    return {
+      ...row,
+      taxaConversao,
+      comissaoTotal: Number((row.ganhos * 59.99).toFixed(2)),
     };
   });
 
@@ -265,6 +275,12 @@ function applyFilters() {
       case 'menos-indicacoes':
         // Menos indicações primeiro
         return a.totalIndicacoes - b.totalIndicacoes;
+
+      case 'mais-comissao':
+        return (b.comissaoTotal || 0) - (a.comissaoTotal || 0);
+
+      case 'mais-conversao':
+        return (b.taxaConversao || 0) - (a.taxaConversao || 0);
       
       case 'nome-az':
         // Nome A-Z
@@ -358,6 +374,27 @@ function renderIndicadores() {
             Total de Indicados
           </span>
           <span class="stat-value">${indicador.totalIndicacoes}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">
+            <i class="fas fa-check-circle"></i>
+            Ganhos
+          </span>
+          <span class="stat-value">${indicador.ganhos || 0}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">
+            <i class="fas fa-percentage"></i>
+            Taxa de Conversão
+          </span>
+          <span class="stat-value">${indicador.taxaConversao || 0}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">
+            <i class="fas fa-coins"></i>
+            Comissão
+          </span>
+          <span class="stat-value" style="color:#0f8a3c;font-weight:800;">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(indicador.comissaoTotal || 0)}</span>
         </div>
         
         ${indicador.primeiraData ? `

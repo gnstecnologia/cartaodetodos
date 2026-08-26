@@ -417,6 +417,13 @@ function renderIndicados() {
             <span>Ganho: ${fechadoEm ? formatDate(fechadoEm) : '—'}</span>
           </div>
 
+          ${stageTexto === 'Ganho' ? `
+            <div class="info-item">
+              <i class="fas fa-coins"></i>
+              <span>Comissão: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(indicacao.valorComissao || 59.99)}</span>
+            </div>
+          ` : ''}
+
           ${promotorNome ? `
             <div class="info-item">
               <i class="fas fa-user-tie"></i>

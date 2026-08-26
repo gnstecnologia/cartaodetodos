@@ -96,6 +96,8 @@ async function loadDashboard() {
     const params = new URLSearchParams();
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
+    const indicador = document.getElementById('indicadorFilter')?.value || '';
+    if (indicador) params.append('indicador', indicador);
     if (params.toString()) url += '?' + params.toString();
 
     const response = await fetch(url, { credentials: 'include' });
@@ -111,6 +113,7 @@ async function loadDashboard() {
     }
 
     allPromotoresData = data.promotores || [];
+    populateIndicadorFilterPromotores(data.indicadoresOptions || [], indicador);
     applyFilters();
 
     loadingEl.style.display = 'none';
@@ -163,7 +166,28 @@ function clearFilters() {
   document.getElementById('dateFilterInicio').value = '';
   document.getElementById('dateFilterFim').value = '';
   document.getElementById('sortFilter').value = 'valor';
+  const indicadorFilter = document.getElementById('indicadorFilter');
+  if (indicadorFilter) indicadorFilter.value = '';
   loadDashboard();
+}
+
+function populateIndicadorFilterPromotores(list, selected) {
+  const select = document.getElementById('indicadorFilter');
+  if (!select) return;
+  const current = selected || select.value || '';
+  const esc = (t) => {
+    const d = document.createElement('div');
+    d.textContent = t == null ? '' : String(t);
+    return d.innerHTML;
+  };
+  select.innerHTML = ['<option value="">Todos</option>']
+    .concat(
+      (list || []).map(
+        (item) =>
+          `<option value="${esc(item.id)}"${String(item.id) === String(current) ? ' selected' : ''}>${esc(item.nome)}</option>`,
+      ),
+    )
+    .join('');
 }
 
 // Exporta dados de promotores
@@ -536,12 +560,23 @@ function updateRanking() {
     return;
   }
 
+  const sortBy = document.getElementById('sortFilter')?.value || 'valor';
+  const titleEl = document.getElementById('rankingSectionTitle');
+  if (titleEl) {
+    titleEl.innerHTML =
+      sortBy === 'conversao'
+        ? '<i class="fas fa-percentage"></i> Ranking por Taxa de Conversão'
+        : '<i class="fas fa-trophy"></i> Ranking por Valor Gerado';
+  }
+
   const rankingHTML = `
     <table class="ranking-table">
       <tbody>
         ${filteredPromotoresData.map((promotor, index) => {
           const rank = index + 1;
           const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+          const valorClass = sortBy === 'valor' || sortBy === 'leads' ? 'metric-highlight' : 'metric-muted';
+          const taxaClass = sortBy === 'conversao' ? 'metric-highlight' : 'metric-muted';
           return `
             <tr onclick='viewPromotorDetalhes(${JSON.stringify(promotor.nome)})' style="cursor: pointer;">
               <td style="display: flex; justify-content: center; align-items: center;">
@@ -563,7 +598,7 @@ function updateRanking() {
                 ` : ''}
               </td>
               <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
+                <div class="${valorClass}" style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; margin-bottom: 0.25rem; white-space: nowrap;">
                   ${formatCurrency(promotor.valorGerado)}
                 </div>
                 <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Valor Gerado</div>
@@ -575,7 +610,7 @@ function updateRanking() {
                 <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Leads</div>
               </td>
               <td style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0; overflow: visible; flex-shrink: 0;">
-                <div style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; font-weight: 700; color: var(--color-background); margin-bottom: 0.25rem; white-space: nowrap;">
+                <div class="${taxaClass}" style="font-family: 'Source Sans 3', sans-serif; font-size: 1rem; margin-bottom: 0.25rem; white-space: nowrap;">
                   ${promotor.taxaConversao}%
                 </div>
                 <div style="font-size: 0.7rem; color: rgba(15, 31, 19, 0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Conversão</div>
